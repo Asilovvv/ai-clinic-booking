@@ -34,6 +34,32 @@ jobs:
       - run: flutter test
       - run: flutter build web
 
+  e2e:
+    name: app + server end-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Start the server
+        working-directory: server
+        run: |
+          pip install -r requirements.txt
+          DB_PATH=/tmp/e2e.db nohup uvicorn app.main:app --port 8000 > /tmp/server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
+      - name: Run the app's data layer and ChatBloc against it
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter test tool/e2e
+      - if: failure()
+        run: cat /tmp/server.log
+
   android:
     runs-on: ubuntu-latest
     defaults:

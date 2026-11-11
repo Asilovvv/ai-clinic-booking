@@ -105,6 +105,9 @@ A ready debug APK is built by CI on every push: GitHub → Actions → latest CI
 `smile-ai-debug-apk`. It talks to `http://10.0.2.2:8000` (emulator); for a real phone build your own
 with `flutter build apk --dart-define=API_URL=http://<your-PC-IP>:8000`.
 
+End-to-end check of the app's HTTP layer and `ChatBloc` against a running server:
+`flutter test tool/e2e` (also runs in CI).
+
 Screenshots in `docs/screenshots` are rendered from the real screens by
 `flutter test tool/screenshots --update-goldens`.
 
