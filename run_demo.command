@@ -8,12 +8,22 @@ set -e
 cd "$(dirname "$0")"
 ROOT="$(pwd)"
 DEVICE="${1:-}"
+# Finder starts scripts with a minimal PATH: add the usual install locations.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/flutter/bin:$HOME/development/flutter/bin:$PATH"
 
 say_step() { printf "\n\033[1;36m==> %s\033[0m\n" "$1"; }
 fail() { printf "\n\033[1;31m%s\033[0m\n" "$1"; read -r -p "Press Enter to close..." _; exit 1; }
 
 command -v python3 >/dev/null || fail "Python 3 is not installed. Get it from https://www.python.org/downloads/"
-command -v flutter >/dev/null || fail "Flutter is not installed or not in PATH. Install it:  brew install --cask flutter   (or https://docs.flutter.dev/get-started/install), then run this file again."
+if ! command -v flutter >/dev/null; then
+  if command -v brew >/dev/null; then
+    read -r -p "Flutter is not installed. Install it now with Homebrew (about 2 GB)? [y/N] " answer
+    [ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "Flutter is required. Run this file again when it is installed."
+    brew install --cask flutter
+  else
+    fail "Flutter is not installed. Install Homebrew (https://brew.sh), then run:  brew install --cask flutter"
+  fi
+fi
 
 say_step "1/3 Preparing the server"
 cd "$ROOT/server"
