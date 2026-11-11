@@ -1,33 +1,42 @@
-# Smile AI — AI administrator for dental clinic booking
+# Smile AI — AI administrator that books anything from one sentence
 
-Cross-platform mobile app (Flutter + Bloc) where a patient books a dentist by writing one
-sentence, e.g. *"my tooth hurts, tomorrow after lunch"*. The server's AI assistant picks the
-right doctor, finds free slots and shows them as tappable cards; one tap creates the appointment.
+Cross-platform mobile app (Flutter + Bloc). The client writes or **says** one sentence —
+*"my tooth hurts, tomorrow after lunch"*, *"haircut on Saturday morning"*, *"oil change on Friday"* —
+and the server's AI assistant picks the right specialist, finds free time and shows it as tappable
+cards. One tap creates the booking. Bookings can be moved or cancelled right in the chat.
+
+| Chat | Booked | My bookings | Specialists | Dark + English |
+|---|---|---|---|---|
+| ![](docs/screenshots/04_chat_slots.png) | ![](docs/screenshots/05_chat_booked.png) | ![](docs/screenshots/06_bookings.png) | ![](docs/screenshots/07_specialists.png) | ![](docs/screenshots/08_dark_english.png) |
 
 | Requirement | How it is met |
 |---|---|
 | Cross-platform mobile app (Flutter) | `app/` — Android, iOS and Web from one codebase |
-| Mobile communicates with server | REST API in `server/` (FastAPI). Auth, doctors, appointments and AI chat all go over HTTP + JSON with a Bearer token |
-| Pushed on GitHub | This repository, with CI (`.github/workflows/ci.yml`) running server tests, `flutter analyze`, `flutter test` and a web build |
-| State management (Bloc) | `flutter_bloc`: `AuthBloc`, `ChatBloc`, `AppointmentsBloc`, `DoctorsBloc` |
+| Mobile communicates with server | REST API in `server/` (FastAPI). Auth, specialists, bookings and AI chat all go over HTTP + JSON with a Bearer token |
+| Pushed on GitHub | This repository, with CI: server tests, `flutter analyze`, `flutter test`, web build and an installable Android APK |
+| State management (Bloc) | `flutter_bloc`: `AuthBloc`, `ChatBloc`, `AppointmentsBloc`, `DoctorsBloc`, `SettingsCubit` |
 
 ## Features
 
-- Register / login, session kept between launches (token in `shared_preferences`)
-- **AI chat**: describe the problem and preferred time → slot cards → tap to book → confirmation card
+- **Three businesses in one app**: dental clinic, barbershop, car service (11 specialists). A new business is a few rows in `server/app/db.py`
+- **AI chat**: describe what you need and when → slot cards → tap to book → confirmation card
+- **Voice input**: press the microphone, say the request, it is sent automatically
+- **Reschedule and cancel in chat**: "перенеси мою запись на пятницу", "отмени запись к барберу"
 - Two assistant modes, shown as a badge in the app bar:
-  - **AI** — any OpenAI-compatible LLM with tool calling (`find_slots`, `book_appointment`, `list_my_appointments`)
-  - **Offline** — built-in Russian/English keyword parser (specialty, date, part of day). Used when no API key is set or the LLM fails, so the demo always works
-- My appointments: list, pull-to-refresh, cancel with confirmation, badge counter in the nav bar
-- Doctors: list of specialists, "Book via AI" opens the chat with a prepared request
+  - **AI** — any OpenAI-compatible LLM with tool calling (`find_slots`, `book_appointment`, `reschedule_appointment`, `cancel_appointment`, `list_my_appointments`)
+  - **Offline** — built-in Russian/English keyword parser. Used when no API key is set or the LLM fails, so the demo always works
+- Register / login, session kept between launches
+- My bookings: list, pull-to-refresh, cancel with confirmation, badge counter
+- Specialists: filter by business, "Book via AI" asks the assistant about that specialist
+- Onboarding, splash screen, app icon, light / dark theme, Russian / Kyrgyz / English interface
 - Server rules: Mon–Sat 09:00–18:00, one-hour slots, no double booking, no past times
 
 ## Architecture
 
 ```
 app/lib
-├── main.dart                 # providers + AuthGate (login vs home)
-├── core/                     # ApiClient (http), config, date formatters
+├── main.dart                 # providers + AppGate (splash / onboarding / login / home)
+├── core/                     # ApiClient (http), config, formatters, strings (RU/KY/EN)
 ├── data/                     # models + repositories (AuthRepository, ClinicRepository)
 ├── bloc/                     # events, states, blocs
 └── ui/                       # screens + widgets
@@ -35,9 +44,9 @@ app/lib
 server/app
 ├── main.py                   # FastAPI endpoints
 ├── auth.py                   # PBKDF2 passwords, bearer tokens
-├── scheduling.py             # slots and booking rules
+├── scheduling.py             # slots, booking, reschedule and cancel rules
 ├── assistant.py              # LLM tool calling + offline fallback
-└── db.py                     # SQLite schema and seed doctors
+└── db.py                     # SQLite schema, seed categories and specialists
 ```
 
 Data flow: `UI → Event → Bloc → Repository → ApiClient → REST API → SQLite / LLM` and back as a new `State`.
@@ -49,12 +58,14 @@ Data flow: `UI → Event → Bloc → Repository → ApiClient → REST API → 
 | POST | `/auth/register` | – | `{name, email, password}` → `{token, user}` |
 | POST | `/auth/login` | – | `{email, password}` → `{token, user}` |
 | GET | `/me` | ✓ | Current user |
-| GET | `/doctors` | – | List of doctors |
-| GET | `/doctors/{id}/slots` | – | Free slots of a doctor |
+| GET | `/categories` | – | Businesses: dental, barber, auto |
+| GET | `/doctors?category=` | – | Specialists, optionally of one business |
+| GET | `/doctors/{id}/slots` | – | Free slots of a specialist |
 | GET | `/appointments` | ✓ | My upcoming appointments |
 | POST | `/appointments` | ✓ | `{doctor_id, start: "YYYY-MM-DDTHH:MM"}` |
+| PATCH | `/appointments/{id}` | ✓ | `{start}` — move to another time |
 | DELETE | `/appointments/{id}` | ✓ | Cancel |
-| POST | `/chat` | ✓ | `{message, history}` → `{reply, slots, appointment, mode}` |
+| POST | `/chat` | ✓ | `{message, history, category?, doctor_id?}` → `{reply, slots, appointment, reschedule_id, changed, mode}` |
 
 Interactive docs: http://localhost:8000/docs
 
@@ -79,7 +90,6 @@ Tests: `python -m pytest -q`
 
 ```bash
 cd app
-flutter create . --project-name ai_clinic   # first time only: generates android/ios/web folders
 flutter pub get
 flutter run
 ```
@@ -91,10 +101,19 @@ Server address used by the app:
 
 Tests: `flutter test`
 
+A ready debug APK is built by CI on every push: GitHub → Actions → latest CI run → artifact
+`smile-ai-debug-apk`. It talks to `http://10.0.2.2:8000` (emulator); for a real phone build your own
+with `flutter build apk --dart-define=API_URL=http://<your-PC-IP>:8000`.
+
+Screenshots in `docs/screenshots` are rendered from the real screens by
+`flutter test tool/screenshots --update-goldens`.
+
 ## Demo script (2 minutes)
 
-1. Register → the assistant greets you by name.
-2. Type *"Болит зуб, завтра после обеда"* → therapist slots after 13:00 appear as cards.
-3. Tap a slot → confirmation card, "My appointments" badge shows 1.
-4. Open **Doctors** → "Book via AI" on the orthodontist → chat finds orthodontist slots.
-5. Open **My appointments** → cancel one.
+1. First launch → onboarding → register. The assistant greets you by name.
+2. Type or say *"Болит зуб, завтра после обеда"* → dentist slots after 13:00 appear as cards.
+3. Tap a slot → confirmation card, the "Bookings" badge shows 1.
+4. Pick **Барбершоп** → *"Стрижка в субботу утром"* → barber slots. Book one.
+5. *"Перенеси запись к барберу на пятницу"* → pick a new time → the booking moves.
+6. *"Отмени запись к стоматологу"* → it disappears from **Bookings**.
+7. Settings (gear) → dark theme, English.

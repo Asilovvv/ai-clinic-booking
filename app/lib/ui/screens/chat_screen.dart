@@ -68,7 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     setState(() => _listening = true);
     await _speech.listen(
-      localeId: settings.lang.speechLocale,
+      listenOptions: SpeechListenOptions(localeId: settings.lang.speechLocale),
       onResult: (result) {
         if (!mounted) return;
         _input.text = result.recognizedWords;

@@ -150,7 +150,7 @@ class SlotCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: SizedBox(
-            width: 150,
+            width: 128,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

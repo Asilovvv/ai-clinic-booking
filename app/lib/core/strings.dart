@@ -105,11 +105,7 @@ class AppStrings {
     );
   }
 
-  String get inputHint => _t(
-        'Например: стрижка завтра утром',
-        'Мисалы: стрижка завтра утром',
-        'E.g. haircut tomorrow morning',
-      );
+  String get inputHint => _t('Напишите или скажите…', 'Жазыңыз же айтыңыз…', 'Type or speak…');
   String get listening => _t('Говорите…', 'Сүйлөңүз…', 'Listening…');
   String get micUnavailable => _t(
         'Голосовой ввод недоступен на этом устройстве',
