@@ -15,21 +15,61 @@ sealed class DoctorsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Load categories and specialists from the server.
 final class DoctorsRequested extends DoctorsEvent {
   const DoctorsRequested();
+}
+
+/// Filter the list by a business category (null = all).
+final class DoctorsCategorySelected extends DoctorsEvent {
+  const DoctorsCategorySelected(this.category);
+
+  final String? category;
+
+  @override
+  List<Object?> get props => [category];
 }
 
 // ----------------------------------------------------------------- state
 
 class DoctorsState extends Equatable {
-  const DoctorsState({this.status = LoadStatus.initial, this.doctors = const [], this.error});
+  const DoctorsState({
+    this.status = LoadStatus.initial,
+    this.categories = const [],
+    this.doctors = const [],
+    this.selected,
+    this.error,
+  });
 
   final LoadStatus status;
+  final List<Category> categories;
   final List<Doctor> doctors;
+
+  /// Selected category id, null for all.
+  final String? selected;
   final String? error;
 
+  /// Specialists of the selected category.
+  List<Doctor> get visible =>
+      selected == null ? doctors : doctors.where((d) => d.category == selected).toList();
+
+  DoctorsState copyWith({
+    LoadStatus? status,
+    List<Category>? categories,
+    List<Doctor>? doctors,
+    String? Function()? selected,
+    String? error,
+  }) =>
+      DoctorsState(
+        status: status ?? this.status,
+        categories: categories ?? this.categories,
+        doctors: doctors ?? this.doctors,
+        selected: selected == null ? this.selected : selected(),
+        error: error,
+      );
+
   @override
-  List<Object?> get props => [status, doctors, error];
+  List<Object?> get props => [status, categories, doctors, selected, error];
 }
 
 // ------------------------------------------------------------------ bloc
@@ -37,16 +77,21 @@ class DoctorsState extends Equatable {
 class DoctorsBloc extends Bloc<DoctorsEvent, DoctorsState> {
   DoctorsBloc(this._repository) : super(const DoctorsState()) {
     on<DoctorsRequested>(_onRequested);
+    on<DoctorsCategorySelected>(
+      (event, emit) => emit(state.copyWith(selected: () => event.category)),
+    );
   }
 
   final ClinicRepository _repository;
 
   Future<void> _onRequested(DoctorsRequested event, Emitter<DoctorsState> emit) async {
-    emit(DoctorsState(status: LoadStatus.loading, doctors: state.doctors));
+    emit(state.copyWith(status: LoadStatus.loading));
     try {
-      emit(DoctorsState(status: LoadStatus.success, doctors: await _repository.doctors()));
+      final categories = await _repository.categories();
+      final doctors = await _repository.doctors();
+      emit(state.copyWith(status: LoadStatus.success, categories: categories, doctors: doctors));
     } on ApiException catch (e) {
-      emit(DoctorsState(status: LoadStatus.failure, doctors: state.doctors, error: e.message));
+      emit(state.copyWith(status: LoadStatus.failure, error: e.message));
     }
   }
 }

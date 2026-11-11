@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/auth_bloc.dart';
+import '../../bloc/settings_cubit.dart';
 import '../../core/config.dart';
 import '../theme.dart';
+import '../widgets/language_button.dart';
+import 'splash_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final strings = context.strings;
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthUnauthenticated && state.error != null) {
@@ -65,15 +69,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
                     children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 44),
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: LanguageButton(color: Colors.white),
                       ),
+                      const BrandLogo(),
                       const SizedBox(height: 16),
                       Text(
                         'Smile AI',
@@ -81,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'ИИ-администратор стоматологии.\nЗапись к врачу одной фразой.',
+                        strings.tagline,
                         textAlign: TextAlign.center,
                         style: text.bodyLarge?.copyWith(color: Colors.white70),
                       ),
@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  _isRegister ? 'Регистрация' : 'Вход',
+                                  _isRegister ? strings.registration : strings.login,
                                   style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 16),
@@ -105,35 +105,35 @@ class _LoginScreenState extends State<LoginScreen> {
                                   TextFormField(
                                     controller: _name,
                                     textCapitalization: TextCapitalization.words,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Имя',
-                                      prefixIcon: Icon(Icons.person_outline),
+                                    decoration: InputDecoration(
+                                      labelText: strings.name,
+                                      prefixIcon: const Icon(Icons.person_outline),
                                     ),
                                     validator: (v) =>
-                                        (v == null || v.trim().length < 2) ? 'Введите имя' : null,
+                                        (v == null || v.trim().length < 2) ? strings.enterName : null,
                                   ),
                                   const SizedBox(height: 12),
                                 ],
                                 TextFormField(
                                   controller: _email,
                                   keyboardType: TextInputType.emailAddress,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     labelText: 'Email',
-                                    prefixIcon: Icon(Icons.mail_outline),
+                                    prefixIcon: const Icon(Icons.mail_outline),
                                   ),
                                   validator: (v) =>
-                                      (v == null || !v.contains('@')) ? 'Введите email' : null,
+                                      (v == null || !v.contains('@')) ? strings.enterEmail : null,
                                 ),
                                 const SizedBox(height: 12),
                                 TextFormField(
                                   controller: _password,
                                   obscureText: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Пароль',
-                                    prefixIcon: Icon(Icons.lock_outline),
+                                  decoration: InputDecoration(
+                                    labelText: strings.password,
+                                    prefixIcon: const Icon(Icons.lock_outline),
                                   ),
                                   validator: (v) =>
-                                      (v == null || v.length < 6) ? 'Минимум 6 символов' : null,
+                                      (v == null || v.length < 6) ? strings.minPassword : null,
                                   onFieldSubmitted: (_) => _submit(),
                                 ),
                                 const SizedBox(height: 20),
@@ -154,16 +154,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                               height: 22,
                                               child: CircularProgressIndicator(strokeWidth: 2),
                                             )
-                                          : Text(_isRegister ? 'Создать аккаунт' : 'Войти'),
+                                          : Text(_isRegister ? strings.createAccount : strings.signIn),
                                     );
                                   },
                                 ),
                                 const SizedBox(height: 8),
                                 TextButton(
                                   onPressed: () => setState(() => _isRegister = !_isRegister),
-                                  child: Text(_isRegister
-                                      ? 'Уже есть аккаунт? Войти'
-                                      : 'Нет аккаунта? Зарегистрироваться'),
+                                  child: Text(_isRegister ? strings.haveAccount : strings.noAccount),
                                 ),
                               ],
                             ),
@@ -172,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Сервер: ${AppConfig.apiUrl}',
+                        '${strings.server}: ${AppConfig.apiUrl}',
                         style: text.bodySmall?.copyWith(color: Colors.white60),
                       ),
                     ],

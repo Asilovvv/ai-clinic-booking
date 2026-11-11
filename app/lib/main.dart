@@ -5,48 +5,69 @@ import 'bloc/appointments_bloc.dart';
 import 'bloc/auth_bloc.dart';
 import 'bloc/chat_bloc.dart';
 import 'bloc/doctors_bloc.dart';
+import 'bloc/settings_cubit.dart';
 import 'core/api_client.dart';
 import 'data/auth_repository.dart';
 import 'data/clinic_repository.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
+import 'ui/screens/onboarding_screen.dart';
+import 'ui/screens/splash_screen.dart';
 import 'ui/theme.dart';
 
 void main() {
-  runApp(ClinicApp(api: ApiClient()));
+  final api = ApiClient();
+  runApp(ClinicApp(
+    authRepository: AuthRepository(api),
+    clinicRepository: ClinicRepository(api),
+  ));
 }
 
 class ClinicApp extends StatelessWidget {
-  const ClinicApp({super.key, required this.api});
+  const ClinicApp({super.key, required this.authRepository, required this.clinicRepository});
 
-  final ApiClient api;
+  final AuthRepository authRepository;
+  final ClinicRepository clinicRepository;
 
   @override
   Widget build(BuildContext context) {
     return MultiRepositoryProvider(
       providers: [
-        RepositoryProvider(create: (_) => AuthRepository(api)),
-        RepositoryProvider(create: (_) => ClinicRepository(api)),
+        RepositoryProvider.value(value: authRepository),
+        RepositoryProvider.value(value: clinicRepository),
       ],
-      child: BlocProvider(
-        create: (context) => AuthBloc(context.read<AuthRepository>())..add(const AuthStarted()),
-        child: MaterialApp(
-          title: 'Smile AI',
-          debugShowCheckedModeBanner: false,
-          theme: buildTheme(),
-          home: const AuthGate(),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => SettingsCubit()..load()),
+          BlocProvider(create: (_) => AuthBloc(authRepository)..add(const AuthStarted())),
+        ],
+        child: BlocBuilder<SettingsCubit, SettingsState>(
+          buildWhen: (prev, curr) => prev.themeMode != curr.themeMode,
+          builder: (context, settings) => MaterialApp(
+            title: 'Smile AI',
+            debugShowCheckedModeBanner: false,
+            theme: buildTheme(Brightness.light),
+            darkTheme: buildTheme(Brightness.dark),
+            themeMode: settings.themeMode,
+            home: const AppGate(),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Shows login or the main app depending on [AuthBloc] state.
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+/// Decides what to show: splash, onboarding, login or the main app.
+class AppGate extends StatelessWidget {
+  const AppGate({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsCubit>().state;
+    if (!settings.loaded) return const SplashScreen();
+    if (!settings.onboardingDone) return const OnboardingScreen();
+    final settingsCubit = context.read<SettingsCubit>();
+
     return BlocBuilder<AuthBloc, AuthState>(
       // Keep the login form on screen while a request is in flight.
       buildWhen: (prev, curr) => curr is! AuthLoading,
@@ -56,8 +77,11 @@ class AuthGate extends StatelessWidget {
               key: ValueKey(user.id),
               providers: [
                 BlocProvider(
-                  create: (context) =>
-                      ChatBloc(context.read<ClinicRepository>(), userName: user.name),
+                  create: (context) => ChatBloc(
+                    context.read<ClinicRepository>(),
+                    userName: user.name,
+                    strings: () => settingsCubit.state.strings,
+                  ),
                 ),
                 BlocProvider(
                   create: (context) =>
@@ -71,7 +95,7 @@ class AuthGate extends StatelessWidget {
               child: HomeScreen(user: user),
             ),
           AuthUnauthenticated() => const LoginScreen(),
-          _ => const Scaffold(body: Center(child: CircularProgressIndicator())),
+          _ => const SplashScreen(),
         };
       },
     );

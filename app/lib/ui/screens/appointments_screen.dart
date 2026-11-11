@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/appointments_bloc.dart';
+import '../../bloc/settings_cubit.dart';
 import '../../core/formatters.dart';
 import '../../data/models.dart';
+import '../theme.dart';
 
 class AppointmentsScreen extends StatelessWidget {
   const AppointmentsScreen({super.key});
@@ -15,6 +17,7 @@ class AppointmentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return BlocConsumer<AppointmentsBloc, AppointmentsState>(
       listenWhen: (prev, curr) => curr.error != null && prev.error != curr.error,
       listener: (context, state) => ScaffoldMessenger.of(context)
@@ -34,15 +37,12 @@ class AppointmentsScreen extends StatelessWidget {
                 Icon(Icons.event_available, size: 72, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 16),
                 Text(
-                  'Записей пока нет',
+                  strings.noAppointments,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Напишите ассистенту, что беспокоит и когда удобно — он запишет вас за секунды.',
-                  textAlign: TextAlign.center,
-                ),
+                Text(strings.noAppointmentsHint, textAlign: TextAlign.center),
               ],
             ),
           );
@@ -68,16 +68,17 @@ class _AppointmentTile extends StatelessWidget {
 
   Future<void> _confirmCancel(BuildContext context) async {
     final bloc = context.read<AppointmentsBloc>();
+    final strings = context.read<SettingsCubit>().state.strings;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Отменить запись?'),
+        title: Text(strings.cancelQuestion),
         content: Text(
-          '${appointment.doctorName}\n${formatDay(appointment.start)}, ${formatTime(appointment.start)}',
+          '${appointment.doctorName}\n${formatDay(appointment.start, strings.lang)}, ${formatTime(appointment.start)}',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Отменить')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(strings.no)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(strings.cancel)),
         ],
       ),
     );
@@ -88,9 +89,10 @@ class _AppointmentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final strings = context.strings;
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: cardColor(scheme),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -108,9 +110,15 @@ class _AppointmentTile extends StatelessWidget {
                 children: [
                   Text(
                     '${appointment.start.day}',
-                    style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                    style: text.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
-                  Text(formatMonth(appointment.start), style: text.bodySmall),
+                  Text(
+                    formatMonth(appointment.start, strings.lang),
+                    style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
+                  ),
                 ],
               ),
             ),
@@ -124,10 +132,10 @@ class _AppointmentTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.schedule, size: 16, color: scheme.primary),
+                      Icon(categoryIcon(appointment.category), size: 16, color: scheme.primary),
                       const SizedBox(width: 4),
                       Text(
-                        '${formatDay(appointment.start)}, ${formatTime(appointment.start)}',
+                        '${formatDay(appointment.start, strings.lang)}, ${formatTime(appointment.start)}',
                         style: text.bodyMedium,
                       ),
                     ],
@@ -136,7 +144,7 @@ class _AppointmentTile extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'Отменить',
+              tooltip: strings.cancel,
               onPressed: () => _confirmCancel(context),
               icon: const Icon(Icons.close),
             ),

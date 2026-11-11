@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../bloc/settings_cubit.dart';
 import '../../core/formatters.dart';
 import '../../data/models.dart';
+import '../theme.dart';
 
 class AssistantAvatar extends StatelessWidget {
   const AssistantAvatar({super.key});
@@ -28,7 +30,7 @@ class MessageBubble extends StatelessWidget {
 
   final ChatMessage message;
   final String? bookingKey;
-  final ValueChanged<Slot> onSlotTap;
+  final void Function(Slot slot, int? rescheduleId) onSlotTap;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +46,7 @@ class MessageBubble extends StatelessWidget {
       background = scheme.errorContainer;
       foreground = scheme.onErrorContainer;
     } else {
-      background = Colors.white;
+      background = cardColor(scheme);
       foreground = scheme.onSurface;
     }
 
@@ -103,7 +105,7 @@ class MessageBubble extends StatelessWidget {
                         slot: slot,
                         loading: bookingKey == slot.key,
                         enabled: bookingKey == null,
-                        onTap: onSlotTap,
+                        onTap: (slot) => onSlotTap(slot, message.rescheduleId),
                       ),
                   ],
                 ),
@@ -155,7 +157,7 @@ class SlotCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.schedule, size: 16, color: scheme.onPrimaryContainer),
+                    Icon(categoryIcon(slot.category), size: 16, color: scheme.onPrimaryContainer),
                     const SizedBox(width: 4),
                     Text(
                       formatTime(slot.start),
@@ -173,19 +175,22 @@ class SlotCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                Text(formatDay(slot.start), style: text.bodySmall),
+                Text(
+                  formatDay(slot.start, context.strings.lang),
+                  style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   slot.doctorName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: text.labelLarge,
+                  style: text.labelLarge?.copyWith(color: scheme.onPrimaryContainer),
                 ),
                 Text(
                   slot.doctorTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
                 ),
               ],
             ),
@@ -205,26 +210,28 @@ class BookedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final strings = context.strings;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       constraints: const BoxConstraints(maxWidth: 300),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F7EE),
+        color: dark ? const Color(0xFF14362A) : const Color(0xFFE8F7EE),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF7BCB98)),
+        border: Border.all(color: dark ? const Color(0xFF2E7D55) : const Color(0xFF7BCB98)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF1E9E52), size: 32),
+          Icon(Icons.check_circle, color: dark ? const Color(0xFF5FD08F) : const Color(0xFF1E9E52), size: 32),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Запись подтверждена', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(strings.bookingConfirmed, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 Text('${appointment.doctorTitle} · ${appointment.doctorName}', style: text.bodySmall),
                 Text(
-                  '${formatDay(appointment.start)}, ${formatTime(appointment.start)}',
+                  '${formatDay(appointment.start, strings.lang)}, ${formatTime(appointment.start)}',
                   style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -267,7 +274,7 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardColor(scheme),
               borderRadius: BorderRadius.circular(18),
             ),
             child: AnimatedBuilder(

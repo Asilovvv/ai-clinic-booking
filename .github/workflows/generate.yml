@@ -1,0 +1,55 @@
+name: Generate platform projects and screenshots
+
+# Runs when the generator tools change. Commits its results back to the branch.
+on:
+  push:
+    paths:
+      - "app/tool/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Git identity
+        run: |
+          git config user.name "Asilovvv"
+          git config user.email "bekaasilov75@gmail.com"
+
+      - name: Create android / ios / web projects (first time only)
+        run: |
+          if [ ! -d android ]; then
+            flutter create . --project-name ai_clinic --org kg.smileai --platforms=android,ios,web
+            # keep our own sources exactly as they are
+            git checkout -- .
+            rm -f test/widget_test.dart README.md
+            python3 tool/patch_platform.py
+            flutter pub get
+            dart run flutter_launcher_icons
+            git add -A .
+            git commit -m "Add Android, iOS and web projects with app icon and permissions"
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      - name: Render screenshots
+        run: |
+          flutter pub get
+          flutter test tool/screenshots --update-goldens
+          git add -A ../docs/screenshots
+          if ! git diff --cached --quiet; then
+            git commit -m "Update app screenshots"
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
