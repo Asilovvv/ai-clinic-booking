@@ -33,7 +33,9 @@ def test_register_login_me(client):
 
 def test_booking_flow(client):
     h = register(client)
-    assert len(client.get("/doctors").json()) == 5
+    assert len(client.get("/doctors").json()) == 11
+    assert len(client.get("/doctors?category=dental").json()) == 5
+    assert [c["id"] for c in client.get("/categories").json()] == ["dental", "barber", "auto"]
     slots = client.get("/doctors/1/slots").json()
     assert slots
     slot = slots[0]
@@ -99,7 +101,7 @@ def test_chat_ai_mode_tool_calling(client, monkeypatch):
         msgs = _json.loads(request.content)["messages"]
         if calls["n"] == 1:
             tc = [{"id": "c1", "type": "function", "function": {"name": "find_slots",
-                   "arguments": _json.dumps({"specialty": "surgeon", "part_of_day": "any"})}}]
+                   "arguments": _json.dumps({"category": "dental", "specialty": "surgeon", "part_of_day": "any"})}}]
             return httpx.Response(200, json={"choices": [{"message": {"content": None, "tool_calls": tc}}]})
         if calls["n"] == 2:
             slots = _json.loads(msgs[-1]["content"])
@@ -117,3 +119,70 @@ def test_chat_ai_mode_tool_calling(client, monkeypatch):
     assert body["reply"] == "Записал вас к хирургу."
     assert body["appointment"]["doctor_id"] == 2
     assert len(client.get("/appointments", headers=h).json()) == 1
+
+
+def chat(client, h, message, category=None):
+    r = client.post("/chat", json={"message": message, "category": category}, headers=h)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_chat_other_businesses(client):
+    h = register(client)
+    barber = chat(client, h, "хочу стрижку завтра")
+    assert barber["slots"] and all(s["doctor_id"] == 6 for s in barber["slots"])
+    auto = chat(client, h, "замена масла в машине")
+    assert auto["slots"] and all(s["doctor_id"] == 9 for s in auto["slots"])
+    # a selected category limits the search when no specialty is named
+    any_auto = chat(client, h, "запишите на ближайшее время", category="auto")
+    assert any_auto["slots"] and all(s["category"] == "auto" for s in any_auto["slots"])
+
+
+def test_reschedule_and_cancel_via_chat(client):
+    h = register(client)
+    slot = chat(client, h, "стрижка")["slots"][0]
+    appt = client.post("/appointments", json={"doctor_id": slot["doctor_id"], "start": slot["start"]}, headers=h).json()
+
+    offer = chat(client, h, "перенеси мою запись")
+    assert offer["reschedule_id"] == appt["id"]
+    assert all(s["doctor_id"] == slot["doctor_id"] for s in offer["slots"])
+    new_start = offer["slots"][0]["start"]
+    assert new_start != slot["start"]
+    moved = client.patch(f"/appointments/{appt['id']}", json={"start": new_start}, headers=h)
+    assert moved.status_code == 200 and moved.json()["start"] == new_start
+    # the old time is free again
+    assert slot["start"] in [s["start"] for s in client.get(f"/doctors/{slot['doctor_id']}/slots").json()]
+
+    cancelled = chat(client, h, "отмени запись")
+    assert cancelled["changed"] is True
+    assert client.get("/appointments", headers=h).json() == []
+
+
+def test_cancel_via_chat_asks_when_ambiguous(client):
+    h = register(client)
+    for i, text in enumerate(["стрижка", "диагностика авто"]):
+        s = chat(client, h, text)["slots"][i]  # different hours: one client, one place at a time
+        assert client.post("/appointments", json={"doctor_id": s["doctor_id"], "start": s["start"]}, headers=h).status_code == 201
+    unclear = chat(client, h, "отмени запись")
+    assert unclear["changed"] is False and "Уточните" in unclear["reply"]
+    assert len(client.get("/appointments", headers=h).json()) == 2
+    done = chat(client, h, "отмени запись в автосервис")
+    assert done["changed"] is True
+    left = client.get("/appointments", headers=h).json()
+    assert len(left) == 1 and left[0]["category"] == "barber"
+
+
+def test_reschedule_rejects_taken_slot(client):
+    h = register(client)
+    slots = client.get("/doctors/1/slots").json()
+    a = client.post("/appointments", json={"doctor_id": 1, "start": slots[0]["start"]}, headers=h).json()
+    h2 = register(client, "b@test.kg")
+    client.post("/appointments", json={"doctor_id": 1, "start": slots[1]["start"]}, headers=h2)
+    assert client.patch(f"/appointments/{a['id']}", json={"start": slots[1]["start"]}, headers=h).status_code == 400
+    assert client.patch(f"/appointments/{a['id']}", json={"start": slots[2]["start"]}, headers=h2).status_code == 404
+
+
+def test_chat_for_specific_specialist(client):
+    h = register(client)
+    r = client.post("/chat", json={"message": "Хочу записаться", "doctor_id": 7}, headers=h).json()
+    assert r["slots"] and all(s["doctor_id"] == 7 for s in r["slots"])

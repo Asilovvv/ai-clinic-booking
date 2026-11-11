@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from . import assistant, scheduling
 from .auth import current_user, hash_password, issue_token, verify_password
-from .db import Database, get_db
+from .db import CATEGORIES, Database, get_db
 
 def _load_env_file() -> None:
     """Read server/.env (KEY=VALUE lines) without overriding real env vars."""
@@ -25,7 +25,7 @@ def _load_env_file() -> None:
 
 _load_env_file()
 
-app = FastAPI(title="AI Clinic Booking API", version="1.0.0")
+app = FastAPI(title="Smile AI Booking API", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -50,9 +50,15 @@ class HistoryItem(BaseModel):
     text: str
 
 
+class RescheduleIn(BaseModel):
+    start: str
+
+
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
     history: list[HistoryItem] = []
+    category: str | None = None
+    doctor_id: int | None = None
 
 
 @app.get("/health")
@@ -87,15 +93,20 @@ def me(user: dict = Depends(current_user)):
     return user
 
 
+@app.get("/categories")
+def categories():
+    return CATEGORIES
+
+
 @app.get("/doctors")
-def doctors(db: Database = Depends(get_db)):
-    return scheduling.list_doctors(db)
+def doctors(category: str | None = None, db: Database = Depends(get_db)):
+    return scheduling.list_doctors(db, category=category)
 
 
 @app.get("/doctors/{doctor_id}/slots")
 def doctor_slots(doctor_id: int, db: Database = Depends(get_db)):
     if db.one("SELECT id FROM doctors WHERE id = ?", (doctor_id,)) is None:
-        raise HTTPException(status_code=404, detail="Врач не найден")
+        raise HTTPException(status_code=404, detail="Специалист не найден")
     return scheduling.find_slots(db, [doctor_id], limit=12)
 
 
@@ -112,15 +123,27 @@ def create_appointment(body: BookIn, user: dict = Depends(current_user), db: Dat
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.patch("/appointments/{appointment_id}")
+def reschedule_appointment(
+    appointment_id: int, body: RescheduleIn, user: dict = Depends(current_user), db: Database = Depends(get_db)
+):
+    if scheduling.get_appointment(db, user["id"], appointment_id) is None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    try:
+        return scheduling.reschedule(db, user["id"], appointment_id, body.start)
+    except scheduling.BookingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.delete("/appointments/{appointment_id}", status_code=204)
 def cancel_appointment(appointment_id: int, user: dict = Depends(current_user), db: Database = Depends(get_db)):
-    row = db.one("SELECT id FROM appointments WHERE id = ? AND user_id = ?", (appointment_id, user["id"]))
-    if row is None:
-        raise HTTPException(status_code=404, detail="Запись не найдена")
-    db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+    try:
+        scheduling.cancel(db, user["id"], appointment_id)
+    except scheduling.BookingError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.post("/chat")
 def chat(body: ChatIn, user: dict = Depends(current_user), db: Database = Depends(get_db)):
     history = [h.model_dump() for h in body.history]
-    return assistant.answer(db, user, body.message, history)
+    return assistant.answer(db, user, body.message, history, body.category, body.doctor_id)
