@@ -71,6 +71,11 @@ Interactive docs: http://localhost:8000/docs
 
 ## Run
 
+**macOS, one click:** double-click `run_demo.command` in Finder. It starts the server and runs the app in the
+iOS Simulator (`./run_demo.command chrome` runs it in the browser).
+
+Manual steps:
+
 ### 1. Server
 
 ```bash
