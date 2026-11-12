@@ -81,7 +81,13 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
-      - run: flutter build web
+      # CanvasKit is served with the app instead of a CDN, so the web app has no outside dependencies.
+      - run: flutter build web --no-web-resources-cdn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smile-ai-web
+          path: app/build/web
+          retention-days: 14
 
   e2e:
     name: app + server end-to-end (PostgreSQL)

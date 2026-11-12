@@ -98,7 +98,8 @@ jobs:
       - working-directory: app
         run: |
           flutter pub get
-          flutter build web --release --base-href "/${{ github.event.repository.name }}/" --dart-define=API_URL="$API_URL"
+          flutter build web --release --no-web-resources-cdn \
+            --base-href "/${{ github.event.repository.name }}/" --dart-define=API_URL="$API_URL"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/build/web
