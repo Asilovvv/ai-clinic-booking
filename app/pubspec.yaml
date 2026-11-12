@@ -1,7 +1,7 @@
 name: ai_clinic
-description: "Smile AI - AI administrator that books a dentist, a barber or a car service from one sentence."
+description: "Smile AI - booking for any local service: a catalog and an AI administrator for clients, a cabinet for business owners."
 publish_to: 'none'
-version: 2.0.0+2
+version: 3.0.0+3
 
 environment:
   sdk: ^3.5.0
