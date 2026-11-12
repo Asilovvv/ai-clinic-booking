@@ -6,8 +6,8 @@ name: Release
 #     "Add to Home Screen").
 #
 # Before the first run (see docs/DEPLOY.md):
-#   1. Deploy the server and put its address into the repository variable API_URL
-#      (Settings > Secrets and variables > Actions > Variables).
+#   1. Deploy the server. Its address is typed in when the workflow is started, or kept in the
+#      repository variable API_URL (Settings > Secrets and variables > Actions > Variables).
 #   2. For the web app turn on Pages: Settings > Pages > Source: GitHub Actions.
 on:
   workflow_dispatch:
@@ -16,6 +16,10 @@ on:
         description: "Version tag of the release, for example v3.0.0"
         required: true
         default: v3.0.0
+      api_url:
+        description: "Address of the cloud server (empty: the repository variable API_URL)"
+        required: false
+        default: ""
       web:
         description: "Also publish the web app on GitHub Pages"
         type: boolean
@@ -27,7 +31,7 @@ permissions:
   id-token: write
 
 env:
-  API_URL: ${{ vars.API_URL }}
+  API_URL: ${{ inputs.api_url || vars.API_URL }}
 
 jobs:
   check:
@@ -36,15 +40,15 @@ jobs:
     steps:
       - run: |
           if [ -z "$API_URL" ]; then
-            echo "::error::Set the repository variable API_URL to the address of the deployed server (docs/DEPLOY.md)."
+            echo "::error::Type the server address into api_url, or set the repository variable API_URL (docs/DEPLOY.md)."
             exit 1
           fi
           # A free cloud server may need up to a minute to wake up.
           for i in 1 2 3 4; do
-            curl -sf --max-time 90 "$API_URL/health" && exit 0
+            curl -sf --max-time 90 "${API_URL%/}/health" && exit 0
             sleep 10
           done
-          echo "::error::$API_URL/health does not answer."
+          echo "::error::${API_URL%/}/health does not answer."
           exit 1
 
   android:

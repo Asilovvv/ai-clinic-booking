@@ -147,12 +147,13 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Build installable APK
-        run: flutter build apk --debug
+      # The same kind of build the Release workflow publishes, so a release cannot fail on it.
+      - name: Build the release APK
+        run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: smile-ai-debug-apk
-          path: app/build/app/outputs/flutter-apk/app-debug.apk
+          name: smile-ai-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
 
   ios:
     name: iOS simulator build
