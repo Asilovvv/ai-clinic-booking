@@ -46,6 +46,8 @@ PARTS_OF_DAY = {
 }
 
 CANCEL_WORDS = ["отмен", "отказ", "cancel"]
+# "удали запись" asks to cancel a booking; without this it reads as the service "удаление зуба".
+_DELETE_BOOKING = re.compile(r"\b(?:удали\w*|убери\w*|убрать)(\s+(?:(?:мою|свою|эту)\s+)?запис)")
 MOVE_WORDS = ["перенес", "перенос", "перезапи", "передвин", "reschedul"]
 INFO_WORDS = ["адрес", "находит", "добраться", "график", "режим", "работает", "работаете",
               "телефон", "номер", "address", "hours", "phone", "location"]
@@ -233,26 +235,50 @@ def _first_service_of(db, specialist: dict, services: list[dict]) -> dict | None
     return next((s for s in services if s["id"] in performed), None)
 
 
-def pick_appointment(db, words: list[str], appointments: list[dict], day: date | None = None) -> dict | None:
-    """Work out which of the client's bookings is meant; None when it is unclear."""
-    if len(appointments) <= 1:
-        return appointments[0] if appointments else None
+def pick_appointment(db, words: list[str], appointments: list[dict],
+                     day: date | None = None) -> tuple[dict | None, bool]:
+    """Work out which of the client's bookings is meant.
+
+    Returns (booking, mismatch). The booking is None when it is unclear which one
+    is meant. `mismatch` says why: the message names a service, a place, a
+    specialist or a niche, and no booking is that. The caller then asks instead
+    of cancelling or moving whatever booking happens to exist.
+    """
+    if not appointments:
+        return None, False
     clause, params = in_params("svc", {a["service_id"] for a in appointments})
     keywords = {row["id"]: [k for k in row["keywords"].split(",") if k]
                 for row in db.query(f"SELECT id, keywords FROM services WHERE id IN {clause}", **params)}
 
-    def score(a: dict) -> int:
-        return (3 * hits(words, keywords.get(a["service_id"], []))
-                + 2 * min(1, hits(words, _business_stems(a["business_name"])))
-                + 2 * min(1, hits(words, _person_stems(a["specialist_name"])))
-                + min(1, hits(words, CATEGORY_BY_ID.get(a["category"], {}).get("keywords", []))))
+    def marks(a: dict) -> tuple[int, int, int, int]:
+        """How well the booking fits the message by service, place, specialist and niche."""
+        return (hits(words, keywords.get(a["service_id"], [])),
+                min(1, hits(words, _business_stems(a["business_name"]))),
+                min(1, hits(words, _person_stems(a["specialist_name"]))),
+                min(1, hits(words, CATEGORY_BY_ID.get(a["category"], {}).get("keywords", []))))
 
-    scores = [(score(a), a) for a in appointments]
-    top = max(s for s, _ in scores)
-    candidates = [a for s, a in scores if s == top] if top else appointments
+    # What the message names at all, judged by everything that can be booked.
+    services = load_services(db)
+    named = (
+        any(hits(words, s["stems"]) for s in services),
+        any(hits(words, s["business_stems"]) for s in services),
+        bool(match_specialists(words, load_specialists(db, {s["business_id"] for s in services}))),
+        any(hits(words, c["keywords"]) for c in CATEGORIES),
+    )
+    # A booking is out as soon as the message names something and the booking is not that.
+    fitting = [(m, a) for m, a in ((marks(a), a) for a in appointments)
+               if all(got or not asked for got, asked in zip(m, named))]
+    if not fitting:
+        return None, True
+
+    def score(m: tuple[int, int, int, int]) -> int:
+        return 3 * m[0] + 2 * m[1] + 2 * m[2] + m[3]
+
+    top = max(score(m) for m, _ in fitting)
+    candidates = [a for m, a in fitting if score(m) == top]
     if len(candidates) > 1 and day is not None:
         candidates = [a for a in candidates if a["start"].startswith(day.isoformat())]
-    return candidates[0] if len(candidates) == 1 else None
+    return (candidates[0] if len(candidates) == 1 else None), False
 
 
 # -------------------------------------------------------------- rules mode
@@ -270,6 +296,13 @@ def _result(reply: str, slots: list | None = None, appointment: dict | None = No
 
 def _describe(a: dict) -> str:
     return f"{a['service_name']}, «{a['business_name']}» — {human_time(a['start'])}"
+
+
+def _which_booking(action: str, example: str, listing: str, mismatch: bool) -> str:
+    """Ask which booking is meant instead of acting on a guess."""
+    if mismatch:
+        return f"Не нашёл у вас такой записи. Ваши записи:\n{listing}\nУточните, какую {action}."
+    return f"У вас несколько записей. Уточните, какую {action}, например: {example}.\n{listing}"
 
 
 def _hours_text(business: dict) -> str:
@@ -295,30 +328,32 @@ def _info_reply(service: dict) -> dict:
 
 def rules_reply(db, user: dict, message: str, category: str | None = None,
                 business_id: int | None = None, specialist_id: int | None = None) -> dict:
-    text = normalize(message)
+    text = _DELETE_BOOKING.sub(r"отмени\1", normalize(message))
     words = tokenize(text)
     day, rest = detect_date(text, words, clock.now().date())
     from_min, to_min = detect_window(rest, words)
     mine = scheduling.customer_appointments(db, user["id"], upcoming_only=True)
+    here = ""
+    if business_id is not None:  # the administrator of one place leaves bookings made elsewhere alone
+        mine = [a for a in mine if a["business_id"] == business_id]
+        here = " здесь"
     listing = "\n".join(f"• {_describe(a)}" for a in mine)
 
     if hits(words, CANCEL_WORDS):
         if not mine:
-            return _result("У вас нет активных записей.")
-        target = pick_appointment(db, words, mine, day)
+            return _result(f"У вас{here} нет активных записей.")
+        target, mismatch = pick_appointment(db, words, mine, day)
         if target is None:
-            return _result("У вас несколько записей. Уточните, какую отменить, "
-                           "например: «отмени запись на стрижку».\n" + listing)
+            return _result(_which_booking("отменить", "«отмени запись на стрижку»", listing, mismatch))
         scheduling.cancel(db, target["id"], customer_id=user["id"])
         return _result(f"Отменил запись: {_describe(target)}.", changed=True)
 
     if hits(words, MOVE_WORDS):
         if not mine:
-            return _result("У вас нет записей, которые можно перенести.")
-        target = pick_appointment(db, words, mine)
+            return _result(f"У вас{here} нет записей, которые можно перенести.")
+        target, mismatch = pick_appointment(db, words, mine)
         if target is None:
-            return _result("У вас несколько записей. Уточните, какую перенести, "
-                           "например: «перенеси стрижку на пятницу».\n" + listing)
+            return _result(_which_booking("перенести", "«перенеси стрижку на пятницу»", listing, mismatch))
         offers = [{
             **target,
             **db.one("SELECT open_hour, close_hour, working_days FROM businesses WHERE id = :id", id=target["business_id"]),
@@ -338,7 +373,8 @@ def rules_reply(db, user: dict, message: str, category: str | None = None,
 
     if ("мои" in words and hits(words, ["запис"])) or ("my" in words and hits(words, ["appointment", "booking"])):
         if not mine:
-            return _result("У вас пока нет записей. Напишите, куда и когда хотите записаться.")
+            return _result(f"У вас{here} пока нет записей. Напишите, {'на что' if here else 'куда'} и когда "
+                           "хотите записаться.")
         return _result("Ваши записи:\n" + listing)
 
     services = load_services(db, category, business_id)
@@ -572,7 +608,8 @@ def run_tool(db, user: dict, name: str, args: dict, state: dict, category: str |
         if name == "business_info":
             return dump(businesses.get_business(db, int(args["business_id"])) or {"error": "not found"})
         if name == "list_my_appointments":
-            return dump(scheduling.customer_appointments(db, user["id"], upcoming_only=True))
+            mine = scheduling.customer_appointments(db, user["id"], upcoming_only=True)
+            return dump([a for a in mine if business_id is None or a["business_id"] == business_id])
         if name == "book_appointment":
             specialist = int(args["specialist_id"]) if args.get("specialist_id") else None
             appointment = scheduling.book(db, service_id=int(args["service_id"]), start=str(args["start"]),

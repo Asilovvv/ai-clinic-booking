@@ -119,6 +119,65 @@ def test_reschedule_and_cancel_by_chat(client, api):
     assert "нет активных" in api.chat(h, "отмени запись")["reply"]
 
 
+def _upcoming(client, headers):
+    return [a["id"] for a in client.get("/appointments", headers=headers).json() if a["upcoming"]]
+
+
+def test_chat_asks_instead_of_touching_a_booking_the_client_did_not_name(client, api):
+    h = api.register()
+    blade = api.business("Барбершоп Blade")
+    booked = api.book(h, api.chat(h, "стрижка в Blade")["slots"][0], source="chat").json()
+    other_master = next(sp["name"].split()[0] for sp in blade["specialists"] if sp["id"] != booked["specialist_id"])
+    day = f"{int(booked['start'][8:10])}.{booked['start'][5:7]}"
+
+    # The only booking is a haircut at Blade. Another niche, place, service or master is not it,
+    # even when the date fits.
+    for phrase in ("отмени запись к стоматологу", f"отмени запись к стоматологу {day}",
+                   "отмени запись в Barber House", "отмени оформление бороды",
+                   f"отмени запись, мастер {other_master}", "удали запись на маникюр"):
+        reply = api.chat(h, phrase)
+        assert reply["changed"] is False and "Не нашёл" in reply["reply"], phrase
+        assert "Мужская стрижка, «Барбершоп Blade»" in reply["reply"], phrase
+    move = api.chat(h, "перенеси запись к стоматологу на субботу")
+    assert move["slots"] == [] and move["reschedule_id"] is None and "Не нашёл" in move["reply"]
+    assert _upcoming(client, h) == [booked["id"]]
+
+    # The same with several bookings: a date alone must not single out a booking of another kind.
+    later = clock.now().date() + timedelta(days=6)
+    wash = api.book(h, api.chat(h, f"помыть машину {later.day}.{later.month:02d}")["slots"][0]).json()
+    for phrase in (f"отмени запись к стоматологу {day}", f"отмени маникюр {later.day}.{later.month:02d}"):
+        reply = api.chat(h, phrase)
+        assert reply["changed"] is False and "Не нашёл" in reply["reply"], phrase
+    assert _upcoming(client, h) == [booked["id"], wash["id"]]
+
+    # Naming the booking itself works as before, and "удали запись" means "cancel".
+    offer = api.chat(h, "перенеси стрижку в Blade")
+    assert offer["reschedule_id"] == booked["id"] and offer["slots"]
+    assert api.chat(h, f"отмени запись {day}")["changed"] is True
+    assert _upcoming(client, h) == [wash["id"]]
+    gone = api.chat(h, "удали мою запись")
+    assert gone["changed"] is True and "Автомойка Aqua" in gone["reply"]
+    assert _upcoming(client, h) == []
+
+
+def test_business_chat_manages_only_its_own_bookings(client, api):
+    h = api.register()
+    blade, aqua = api.business("Барбершоп Blade"), api.business("Автомойка Aqua")
+    booked = api.book(h, api.chat(h, "стрижка в Blade")["slots"][0]).json()
+
+    # The administrator of the car wash neither shows nor changes a booking made at the barbershop.
+    assert "Мужская стрижка" not in api.chat(h, "мои записи", business_id=aqua["id"])["reply"]
+    refused = api.chat(h, "отмени запись", business_id=aqua["id"])
+    assert refused["changed"] is False and "нет активных записей" in refused["reply"]
+    move = api.chat(h, "перенеси запись", business_id=aqua["id"])
+    assert move["slots"] == [] and move["reschedule_id"] is None
+    assert _upcoming(client, h) == [booked["id"]]
+
+    assert "Мужская стрижка" in api.chat(h, "мои записи", business_id=blade["id"])["reply"]
+    assert api.chat(h, "отмени запись", business_id=blade["id"])["changed"] is True
+    assert _upcoming(client, h) == []
+
+
 def _fake_llm(monkeypatch, steps):
     """Replace the LLM with a script: each step is a list of tool calls or a final text."""
     calls = {"n": 0, "seen": []}

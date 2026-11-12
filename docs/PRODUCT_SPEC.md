@@ -67,6 +67,11 @@ Two interchangeable engines behind one endpoint:
 Because matching reads services from the database, a service an owner adds is bookable by
 chat immediately.
 
+Cancelling and moving never act on a guess. If the message names a service, a place, a
+specialist or a niche the client has no booking for, or several bookings fit, the assistant
+lists the bookings and asks which one is meant. In a chat opened from a business page it
+shows and changes only the bookings made in that business.
+
 ## 7. Client features
 
 - Explore: search, niche filter, business cards with rating, address and starting price.

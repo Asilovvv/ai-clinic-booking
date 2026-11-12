@@ -48,7 +48,8 @@ clients and revenue.
 set it is any OpenAI-compatible model with tool calling. Without a key, or when the model fails,
 the built-in assistant answers: it matches services by keyword stems, understands dates and times
 in Russian and English, and books, moves and cancels. It reads services from the database, so a
-service an owner adds is bookable by chat immediately.
+service an owner adds is bookable by chat immediately. It never cancels or moves a booking on a
+guess: when it is not clear which booking is meant, it lists them and asks.
 
 Also: Russian, Kyrgyz and English interface, light and dark theme, onboarding, one-tap demo
 accounts, a session kept between launches. The full brief is in [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
