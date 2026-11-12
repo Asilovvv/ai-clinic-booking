@@ -35,15 +35,16 @@ cd "$ROOT/server"
 ./.venv/bin/pip install -q -r requirements.txt
 
 say_step "2/3 Starting the server on http://localhost:8000"
-if curl -sf http://127.0.0.1:8000/health >/dev/null; then
-  echo "Server is already running."
-else
-  ./.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > "$ROOT/server/server.log" 2>&1 &
-  SERVER_PID=$!
-  trap 'kill $SERVER_PID 2>/dev/null' EXIT
-  for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 1; done
-  curl -sf http://127.0.0.1:8000/health >/dev/null || fail "The server did not start. See server/server.log"
+# A server left running by an earlier launch may be an older version of the code: restart it.
+if pkill -f "uvicorn app.main:app" 2>/dev/null; then
+  echo "Restarting the server that was already running."
+  sleep 1
 fi
+./.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > "$ROOT/server/server.log" 2>&1 &
+SERVER_PID=$!
+trap 'kill $SERVER_PID 2>/dev/null' EXIT
+for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 1; done
+curl -sf http://127.0.0.1:8000/health >/dev/null || fail "The server did not start. See server/server.log"
 echo "API docs: http://localhost:8000/docs"
 
 say_step "3/3 Running the app (the first build takes a few minutes)"
