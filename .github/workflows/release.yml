@@ -19,7 +19,7 @@ on:
       api_url:
         description: "Address of the cloud server (empty: the repository variable API_URL)"
         required: false
-        default: ""
+        default: https://smile-ai-api.onrender.com
       web:
         description: "Also publish the web app on GitHub Pages"
         type: boolean
