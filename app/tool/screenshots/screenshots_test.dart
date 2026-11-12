@@ -65,6 +65,9 @@ void main() {
     await _shot(tester, '05_booking');
 
     await _tap(tester, find.text('Записаться на 15:00'));
+    await _tap(tester, find.text('Спросить ИИ-администратора'));
+    await _ask(tester, 'Борода завтра после обеда');
+    await _shot(tester, '06_business_chat');
     debugDisableShadows = true;
   });
 
@@ -72,31 +75,51 @@ void main() {
     await startApp(tester, now: _now, demo: 'customer');
     await _tap(tester, _tab('Ассистент'));
     await _ask(tester, 'Стрижка завтра утром');
-    await _shot(tester, '06_chat_slots');
+    await _shot(tester, '07_chat_slots');
 
     await _tap(tester, find.text('10:00'));
-    await _shot(tester, '07_chat_booked');
+    await _shot(tester, '08_chat_booked');
 
     await _tap(tester, _tab('Записи'));
-    await _shot(tester, '08_bookings');
+    await _shot(tester, '09_bookings');
 
     await _tap(tester, find.text('История'));
-    await _shot(tester, '09_history');
+    await _shot(tester, '10_history');
+
+    await _tap(tester, find.text('Оценить'));
+    await _shot(tester, '11_review');
+    await _tap(tester, find.text('Отправить'));
+
+    await _tap(tester, _tab('Профиль'));
+    await _shot(tester, '12_profile');
     debugDisableShadows = true;
   });
 
   testWidgets('owner: dashboard, schedule, services, business', (tester) async {
     await startApp(tester, now: _now, demo: 'owner');
-    await _shot(tester, '10_owner_today');
+    await _shot(tester, '13_owner_today');
 
     await _tap(tester, _tab('Записи'));
-    await _shot(tester, '11_owner_schedule');
+    await _shot(tester, '14_owner_schedule');
+
+    await _tap(tester, find.text('Новая запись'));
+    await _tap(tester, find.widgetWithText(ListTile, 'Консультация и осмотр'));
+    await tester.enterText(find.widgetWithText(TextField, 'Имя клиента'), 'Марат Исаков');
+    await _tap(tester, find.widgetWithText(ChoiceChip, '16:00'));
+    await _shot(tester, '15_owner_manual_booking');
+    await _tap(tester, find.text('Записать на 16:00'));
 
     await _tap(tester, _tab('Услуги'));
-    await _shot(tester, '12_owner_services');
+    await _shot(tester, '16_owner_services');
+
+    await _tap(tester, find.text('Добавить услугу'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Название услуги'), 'Имплантация');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Цена, сом'), '25000');
+    await _shot(tester, '17_owner_service_dialog');
+    await _tap(tester, find.text('Сохранить'));
 
     await _tap(tester, _tab('Бизнес'));
-    await _shot(tester, '13_owner_business');
+    await _shot(tester, '18_owner_business');
     debugDisableShadows = true;
   });
 
@@ -107,12 +130,12 @@ void main() {
     await tester.enterText(find.widgetWithText(TextFormField, 'Имя'), 'Асель');
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'asel@example.kg');
     await tester.enterText(find.widgetWithText(TextFormField, 'Пароль'), 'secret123');
-    await _shot(tester, '14_register_owner');
+    await _shot(tester, '19_register_owner');
 
     await _tap(tester, find.text('Создать аккаунт'));
     await _tap(tester, find.widgetWithText(ChoiceChip, 'Барбершоп'));
     await tester.enterText(find.widgetWithText(TextFormField, 'Название'), 'Barber Asel');
-    await _shot(tester, '15_owner_setup');
+    await _shot(tester, '20_owner_setup');
     debugDisableShadows = true;
   });
 
@@ -120,7 +143,7 @@ void main() {
     await startApp(tester, now: _now, demo: 'customer', lang: 'en');
     final settings = tester.element(find.byType(CustomerShell)).read<SettingsCubit>();
     await settings.setThemeMode(ThemeMode.dark);
-    await _shot(tester, '16_dark_english');
+    await _shot(tester, '21_dark_english');
     debugDisableShadows = true;
   });
 }
