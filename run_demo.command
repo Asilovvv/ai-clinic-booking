@@ -2,7 +2,8 @@
 # One-click demo launcher for macOS: double-click this file in Finder.
 # Starts the FastAPI server, then runs the Flutter app.
 #   ./run_demo.command          -> in Chrome, at http://localhost:8080 (no questions asked)
-#   ./run_demo.command <id>     -> any device id from `flutter devices` (simulator, phone)
+#   ./run_demo.command iphone   -> install on the connected iPhone (or double-click run_on_iphone.command)
+#   ./run_demo.command <id>     -> any other device id from `flutter devices`
 set -e
 cd "$(dirname "$0")"
 ROOT="$(pwd)"
@@ -48,7 +49,29 @@ echo "API docs: http://localhost:8000/docs"
 say_step "3/3 Running the app (the first build takes a few minutes)"
 cd "$ROOT/app"
 flutter pub get
-if [ -n "$DEVICE" ]; then
+if [ "$DEVICE" = "iphone" ]; then
+  # Real iPhone over Wi-Fi: the phone must reach this Mac by its network address.
+  IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+  [ -n "$IP" ] || fail "This Mac is not connected to Wi-Fi. Connect the Mac and the iPhone to the same network."
+  PHONE_ID="$(flutter devices --machine 2>/dev/null | python3 -c '
+import json, sys
+devices = json.load(sys.stdin)
+ids = [d["id"] for d in devices if str(d.get("targetPlatform", "")).startswith("ios") and not d.get("emulator")]
+print(ids[0] if ids else "")')"
+  [ -n "$PHONE_ID" ] || fail "No iPhone found. Unlock it, connect it by cable, tap Trust, and turn on Developer Mode (Settings > Privacy & Security)."
+  if ! grep -q "DEVELOPMENT_TEAM" ios/Runner.xcodeproj/project.pbxproj; then
+    echo
+    echo "One-time step: the app must be signed with your Apple ID."
+    echo "  1. Xcode opens now. Click Runner (top of the left panel) > target Runner > Signing & Capabilities."
+    echo "  2. Tick 'Automatically manage signing' and choose your Team (your Apple ID, Personal Team)."
+    echo "  3. Come back to this window."
+    open ios/Runner.xcworkspace
+    read -r -p "Press Enter here when the Team is selected..." _
+  fi
+  echo "Server address for the phone: http://$IP:8000"
+  echo "Installing on the iPhone (the first build takes 5-10 minutes)..."
+  flutter run --release -d "$PHONE_ID" --dart-define=API_URL="http://$IP:8000"
+elif [ -n "$DEVICE" ]; then
   flutter run -d "$DEVICE"
 else
   echo "Opening the app in Chrome at http://localhost:8080"
