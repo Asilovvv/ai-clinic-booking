@@ -2,6 +2,7 @@
 # One-click demo launcher for macOS: double-click this file in Finder.
 # Starts the FastAPI server, then runs the Flutter app.
 #   ./run_demo.command          -> in Chrome, at http://localhost:8080 (no questions asked)
+#                                  Launching it again restarts the server and the app.
 #   ./run_demo.command iphone   -> install on the connected iPhone (or double-click run_on_iphone.command)
 #   ./run_demo.command <id>     -> any other device id from `flutter devices`
 set -e
@@ -13,6 +14,22 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/flutter/bin:$HOME/developmen
 
 say_step() { printf "\n\033[1;36m==> %s\033[0m\n" "$1"; }
 fail() { printf "\n\033[1;31m%s\033[0m\n" "$1"; read -r -p "Press Enter to close..." _; exit 1; }
+
+# Prints the port for the web app. Launching the demo twice used to break both: the first launch
+# held the port, so the second could not start and took the server down with it on exit.
+# Now an earlier launch that still holds the port is stopped. Any other program is left alone
+# and the app takes the next free port.
+app_port() {
+  local port=8080 old
+  old="$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  if [ -n "$old" ] && ps -p "$old" -o command= 2>/dev/null | grep -q "flutter"; then
+    echo "An earlier launch is still running: stopping it." >&2
+    kill "$old" 2>/dev/null || true
+    for _ in $(seq 1 15); do lsof -ti "tcp:$port" -sTCP:LISTEN >/dev/null 2>&1 || break; sleep 1; done
+  fi
+  while lsof -ti "tcp:$port" -sTCP:LISTEN >/dev/null 2>&1; do port=$((port + 1)); done
+  echo "$port"
+}
 
 command -v python3 >/dev/null || fail "Python 3 is not installed. Get it from https://www.python.org/downloads/"
 if ! command -v flutter >/dev/null; then
@@ -75,6 +92,7 @@ print(ids[0] if ids else "")')"
 elif [ -n "$DEVICE" ]; then
   flutter run -d "$DEVICE"
 else
-  echo "Opening the app in Chrome at http://localhost:8080"
-  flutter run -d chrome --web-port 8080
+  PORT="$(app_port)"
+  echo "Opening the app in Chrome at http://localhost:$PORT"
+  flutter run -d chrome --web-port "$PORT"
 fi
