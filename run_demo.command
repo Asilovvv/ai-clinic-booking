@@ -1,9 +1,8 @@
 #!/bin/bash
 # One-click demo launcher for macOS: double-click this file in Finder.
 # Starts the FastAPI server, then runs the Flutter app.
-#   ./run_demo.command          -> iOS Simulator (or the only connected device)
-#   ./run_demo.command chrome   -> in the Chrome browser
-#   ./run_demo.command <id>     -> any device id from `flutter devices`
+#   ./run_demo.command          -> in Chrome, at http://localhost:8080 (no questions asked)
+#   ./run_demo.command <id>     -> any device id from `flutter devices` (simulator, phone)
 set -e
 cd "$(dirname "$0")"
 ROOT="$(pwd)"
@@ -52,6 +51,6 @@ flutter pub get
 if [ -n "$DEVICE" ]; then
   flutter run -d "$DEVICE"
 else
-  open -a Simulator 2>/dev/null && sleep 10 || true
-  flutter run
+  echo "Opening the app in Chrome at http://localhost:8080"
+  flutter run -d chrome --web-port 8080
 fi
