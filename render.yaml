@@ -1,0 +1,21 @@
+# Render Blueprint: the Smile AI server as one web service built from server/Dockerfile.
+# In Render: New > Blueprint > pick this repository > Apply. See docs/DEPLOY.md.
+# Spec: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: smile-ai-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /health
+    envVars:
+      # PostgreSQL connection string. Render asks for it when the Blueprint is applied.
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_TIMEZONE
+        value: Asia/Bishkek
+      # Demo businesses and demo accounts on an empty database. Set to "0" for a real launch.
+      - key: SEED_DEMO
+        value: "1"
