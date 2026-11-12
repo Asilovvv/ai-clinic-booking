@@ -74,6 +74,9 @@ Interactive docs: http://localhost:8000/docs
 **macOS, one click:** double-click `run_demo.command` in Finder. It starts the server and opens the app in
 Chrome at http://localhost:8080 (`./run_demo.command <device-id>` runs it on a simulator or phone).
 
+**On a real iPhone:** connect the phone, double-click `run_on_iphone.command`. It installs a release build that
+talks to the server on this Mac over Wi-Fi (the first time it asks you to pick your Apple ID team in Xcode).
+
 Manual steps:
 
 ### 1. Server

@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>The app connects to the booking server on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The microphone is used to dictate booking requests.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
