@@ -228,6 +228,11 @@ def get_appointment(db, appointment_id: int) -> dict | None:
     return appointment_dict(row) if row else None
 
 
+def belongs_to_customer(db, appointment_id: int, customer_id: int) -> bool:
+    row = db.one("SELECT customer_id FROM appointments WHERE id = :id", id=appointment_id)
+    return row is not None and row["customer_id"] == customer_id
+
+
 def customer_appointments(db, customer_id: int, upcoming_only: bool = False) -> list[dict]:
     """A client's bookings, earliest first (the last 200 when history is included)."""
     sql = _APPOINTMENT_SQL + " WHERE a.customer_id = :customer_id"

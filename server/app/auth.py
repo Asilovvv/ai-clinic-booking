@@ -68,6 +68,17 @@ def current_user(creds: HTTPAuthorizationCredentials | None = Depends(_bearer), 
     return public_user(row)
 
 
+def optional_user(creds: HTTPAuthorizationCredentials | None = Depends(_bearer), db=Depends(get_db)) -> dict | None:
+    """The signed-in user, or None for an anonymous request (public pages work without a token)."""
+    if creds is None:
+        return None
+    row = db.one(
+        "SELECT u.* FROM users u JOIN tokens t ON t.user_id = u.id WHERE t.token = :token",
+        token=creds.credentials,
+    )
+    return public_user(row) if row else None
+
+
 def current_owner(user: dict = Depends(current_user)) -> dict:
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Раздел доступен только владельцам бизнеса")

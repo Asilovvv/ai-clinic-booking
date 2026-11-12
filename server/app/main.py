@@ -231,11 +231,22 @@ def business_slots(
     specialist_id: int | None = None,
     day: str | None = Query(default=None, alias="date"),
     limit: int = Query(default=48, ge=1, le=96),
+    exclude_appointment_id: int | None = None,
+    user: dict | None = Depends(auth.optional_user),
     db=Depends(get_db),
 ):
-    """Free start times of a service: every 30 minutes of one day, or the nearest ones."""
+    """Free start times of a service: every 30 minutes of one day, or the nearest ones.
+
+    A client who is moving a booking passes its id in `exclude_appointment_id`,
+    so the time it occupies now is offered too. Only the booking's own client
+    gets that; for anyone else the parameter is ignored.
+    """
+    moving = None
+    if exclude_appointment_id is not None and user is not None:
+        if scheduling.belongs_to_customer(db, exclude_appointment_id, user["id"]):
+            moving = exclude_appointment_id
     offers = scheduling.load_offers(db, service_ids=[service_id], business_id=business_id, specialist_id=specialist_id)
-    return scheduling.find_slots(db, offers, _parse_day(day), limit=limit)
+    return scheduling.find_slots(db, offers, _parse_day(day), limit=limit, exclude_appointment_id=moving)
 
 
 # ---------------------------------------------------------------- bookings

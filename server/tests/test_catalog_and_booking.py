@@ -129,6 +129,35 @@ def test_reschedule(client, api):
     assert client.patch(f"/appointments/{booked['id']}", headers=first, json={"start": other["start"]}).status_code == 400
 
 
+def test_moving_a_booking_frees_its_own_time_for_its_client_only(client, api):
+    first, second = api.register(), api.register()
+    blade = api.business("Барбершоп Blade")
+    cut = api.service(blade, "Мужская стрижка")  # 60 minutes
+    slots = api.full_day(blade, cut)
+    booked = api.book(first, slots[2]).json()
+    day = booked["start"][:10]
+
+    def free(headers=None, **params):
+        r = client.get(f"/businesses/{blade['id']}/slots", headers=headers, params={
+            "service_id": cut["id"], "specialist_id": booked["specialist_id"], "date": day, **params,
+        })
+        assert r.status_code == 200, r.text
+        return [s["start"] for s in r.json()]
+
+    # The booking blocks its own start and the half-hours it overlaps.
+    assert booked["start"] not in free(first)
+    assert slots[1]["start"] not in free(first)
+    # Its client may move it by half an hour: the booking's own time counts as free.
+    mine = free(first, exclude_appointment_id=booked["id"])
+    assert booked["start"] in mine and slots[1]["start"] in mine
+    # Nobody else gets that, signed in or not.
+    assert booked["start"] not in free(second, exclude_appointment_id=booked["id"])
+    assert booked["start"] not in free(exclude_appointment_id=booked["id"])
+
+    moved = client.patch(f"/appointments/{booked['id']}", headers=first, json={"start": slots[1]["start"]})
+    assert moved.status_code == 200 and moved.json()["start"] == slots[1]["start"]
+
+
 def test_review_after_visit(client, api):
     headers = api.register()
     me = client.get("/me", headers=headers).json()
