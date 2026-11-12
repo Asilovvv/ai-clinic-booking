@@ -15,6 +15,7 @@ ThemeData buildTheme(Brightness brightness) {
   final isLight = brightness == Brightness.light;
   return ThemeData(
     useMaterial3: true,
+    fontFamily: 'Roboto',
     colorScheme: scheme,
     scaffoldBackgroundColor: isLight ? const Color(0xFFF4F7F7) : scheme.surface,
     appBarTheme: AppBarTheme(

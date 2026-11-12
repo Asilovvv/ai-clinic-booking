@@ -99,9 +99,42 @@ class _Root extends StatelessWidget {
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
       themeMode: themeMode,
+      builder: (context, child) => PhoneFrame(child: child!),
       home: const AppGate(),
     );
     return user == null ? app : SessionScope(key: ValueKey('session-${user.id}'), user: user, child: app);
+  }
+}
+
+/// On a wide screen (a browser on a computer, a tablet) the app keeps a
+/// phone's proportions: a centred column instead of cards stretched edge to edge.
+class PhoneFrame extends StatelessWidget {
+  const PhoneFrame({super.key, required this.child});
+
+  static const double maxWidth = 480;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    if (media.size.width <= 600) return child;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return ColoredBox(
+      color: dark ? Colors.black : const Color(0xFFDDE5E5),
+      child: Center(
+        child: SizedBox(
+          width: maxWidth,
+          child: ClipRect(
+            // Screens ask MediaQuery for the width: tell them the column's, not the window's.
+            child: MediaQuery(
+              data: media.copyWith(size: Size(maxWidth, media.size.height)),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

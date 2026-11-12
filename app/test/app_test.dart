@@ -172,6 +172,17 @@ void main() {
       expect(find.text('Оценить'), findsOneWidget);
     });
 
+    testWidgets('on a wide screen the app stays a phone-sized column', (tester) async {
+      await startApp(tester, now: _now, demo: 'customer', screen: const Size(1440, 900));
+      expect(tester.getSize(find.byType(Scaffold).first).width, 480);
+      expect(tester.getCenter(find.byType(Scaffold).first).dx, 720);
+
+      // Pages and sheets opened from it stay inside the column too.
+      await _tap(tester, find.text('Барбершоп Blade'));
+      await _tap(tester, find.widgetWithText(FilledButton, 'Записаться'));
+      expect(tester.getSize(find.byType(BottomSheet)).width, 480);
+    });
+
     testWidgets('switches the interface to English', (tester) async {
       await _start(tester, demo: 'customer');
       await _tap(tester, _tab('Профиль'));
