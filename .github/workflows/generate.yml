@@ -1,10 +1,10 @@
 name: Generate platform projects and screenshots
 
-# Runs when the generator tools change. Commits its results back to the branch.
+# Run by hand from the Actions tab. Commits its results back to the branch.
+# Screenshots are normally rendered locally before a commit
+# (cd app && flutter test tool/screenshots --update-goldens); this job is for
+# machines without Flutter.
 on:
-  push:
-    paths:
-      - "app/tool/**"
   workflow_dispatch:
 
 permissions:
@@ -46,6 +46,7 @@ jobs:
       - name: Render screenshots
         run: |
           flutter pub get
+          rm -f ../docs/screenshots/*.png
           flutter test tool/screenshots --update-goldens
           git add -A ../docs/screenshots
           if ! git diff --cached --quiet; then

@@ -6,6 +6,7 @@ on:
 
 jobs:
   server:
+    name: server tests (SQLite)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -18,7 +19,55 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
 
+  server-postgres:
+    name: server tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smile
+          POSTGRES_DB: smile
+          # A throwaway database inside the CI runner: no password needed.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smile"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-prod.txt
+      - run: python -m pytest -q
+        env:
+          TEST_DATABASE_URL: postgresql://smile@localhost:5432/smile
+
+  server-image:
+    name: server container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image the cloud will run
+        run: docker build -t smile-ai-server server
+      - name: Start it and call the API
+        run: |
+          docker run -d --name smile -p 8000:8000 smile-ai-server
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:8000/config
+          curl -sf http://127.0.0.1:8000/businesses | python3 -c "import json, sys; assert len(json.load(sys.stdin)) == 12"
+      - if: failure()
+        run: docker logs smile
+
   app:
+    name: app analyze, tests, web build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,8 +84,22 @@ jobs:
       - run: flutter build web
 
   e2e:
-    name: app + server end-to-end
+    name: app + server end-to-end (PostgreSQL)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smile
+          POSTGRES_DB: smile
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smile"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,11 +111,13 @@ jobs:
           cache: true
       - name: Start the server
         working-directory: server
+        env:
+          DATABASE_URL: postgresql://smile@localhost:5432/smile
         run: |
-          pip install -r requirements.txt
-          DB_PATH=/tmp/e2e.db nohup uvicorn app.main:app --port 8000 > /tmp/server.log 2>&1 &
+          pip install -r requirements.txt -r requirements-prod.txt
+          nohup uvicorn app.main:app --port 8000 > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
-      - name: Run the app's data layer and ChatBloc against it
+      - name: Run the app's data layer and blocs against it
         working-directory: app
         run: |
           flutter pub get
