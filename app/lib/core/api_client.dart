@@ -59,7 +59,8 @@ class ApiClient {
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     final http.Response response;
     try {
-      response = await request().timeout(const Duration(seconds: 60));
+      // Long enough for a free cloud server to wake up after it was idle.
+      response = await request().timeout(const Duration(seconds: 90));
     } catch (_) {
       throw ApiException(0, 'Нет связи с сервером ($_baseUrl)');
     }

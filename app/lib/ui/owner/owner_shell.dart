@@ -128,7 +128,10 @@ class _OwnerShellState extends State<OwnerShell> {
             : null,
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          onDestinationSelected: (i) {
+            hideMessage(context);
+            setState(() => _index = i);
+          },
           destinations: [
             NavigationDestination(
               icon: const Icon(Icons.dashboard_outlined),

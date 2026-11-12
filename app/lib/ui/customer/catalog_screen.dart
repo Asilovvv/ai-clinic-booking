@@ -208,7 +208,10 @@ class BusinessCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final muted = text.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
     return AppCard(
-      onTap: () => Navigator.of(context).push(BusinessScreen.route(business)),
+      onTap: () {
+        hideMessage(context);
+        Navigator.of(context).push(BusinessScreen.route(business));
+      },
       child: Row(
         children: [
           CategoryIconTile(category: business.category),

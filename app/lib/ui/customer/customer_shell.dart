@@ -5,6 +5,7 @@ import '../../bloc/appointments_bloc.dart';
 import '../../bloc/chat_bloc.dart';
 import '../../bloc/settings_cubit.dart';
 import '../../data/models.dart';
+import '../widgets/common.dart';
 import 'appointments_screen.dart';
 import 'catalog_screen.dart';
 import 'chat_view.dart';
@@ -61,7 +62,10 @@ class _CustomerShellState extends State<CustomerShell> {
             final upcoming = state.upcoming.length;
             return NavigationBar(
               selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
+              onDestinationSelected: (i) {
+                hideMessage(context);
+                setState(() => _index = i);
+              },
               destinations: [
                 NavigationDestination(
                   icon: const Icon(Icons.explore_outlined),

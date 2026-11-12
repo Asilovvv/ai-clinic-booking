@@ -34,6 +34,11 @@ class AppStrings {
         'ЖИ-администратор.\nБир сүйлөм менен жазылуу.',
         'AI administrator.\nBook with one sentence.',
       );
+  String get wakingUp => _t(
+        'Подключаемся к серверу… Если он спал, это займёт до минуты.',
+        'Серверге туташуудабыз… Эгер ал уктап жаткан болсо, бир мүнөткө чейин созулат.',
+        'Connecting to the server… If it was asleep, this takes up to a minute.',
+      );
   String get retry => _t('Повторить', 'Кайталоо', 'Retry');
   String get loadError => _t('Ошибка загрузки', 'Жүктөө катасы', 'Loading failed');
   String get all => _t('Все', 'Баары', 'All');

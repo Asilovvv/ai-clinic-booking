@@ -181,9 +181,9 @@ class SlotCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   slot.serviceName,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: text.labelLarge?.copyWith(color: color),
+                  style: text.labelLarge?.copyWith(color: color, height: 1.2),
                 ),
                 Text(
                   showBusiness ? slot.businessName : slot.specialistName,

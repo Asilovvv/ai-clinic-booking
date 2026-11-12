@@ -321,5 +321,9 @@ class StatusChip extends StatelessWidget {
 void showMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 3)));
 }
+
+/// Removes the message on screen. Called when the user moves on to another
+/// page or tab, where it would only cover the controls at the bottom.
+void hideMessage(BuildContext context) => ScaffoldMessenger.of(context).hideCurrentSnackBar();

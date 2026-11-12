@@ -102,7 +102,10 @@ class _BusinessView extends StatelessWidget {
                     minimumSize: const Size.fromHeight(50),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: () => Navigator.of(context).push(BusinessChatPage.route(business)),
+                  onPressed: () {
+                    hideMessage(context);
+                    Navigator.of(context).push(BusinessChatPage.route(business));
+                  },
                   icon: const Icon(Icons.auto_awesome),
                   label: Text(strings.askAi),
                 ),
