@@ -1,85 +1,119 @@
-# Smile AI — AI administrator that books anything from one sentence
+# Smile AI — booking for local services, with an AI administrator
 
-Cross-platform mobile app (Flutter + Bloc). The client writes or **says** one sentence —
-*"my tooth hurts, tomorrow after lunch"*, *"haircut on Saturday morning"*, *"oil change on Friday"* —
-and the server's AI assistant picks the right specialist, finds free time and shows it as tappable
-cards. One tap creates the booking. Bookings can be moved or cancelled right in the chat.
+A two-sided product in one Flutter app. **Clients** find a place in the catalog or simply write
+or say what they need — *"haircut tomorrow morning"*, *"my tooth hurts, after lunch"* — and the
+AI administrator offers free time and books it. **Business owners** register their business in a
+minute, get an administrator that takes bookings around the clock, and see their schedule,
+clients and revenue.
 
-| Chat | Booked | My bookings | Specialists | Dark + English |
+| Catalog | Business page | Booking | AI administrator | My bookings |
 |---|---|---|---|---|
-| ![](docs/screenshots/04_chat_slots.png) | ![](docs/screenshots/05_chat_booked.png) | ![](docs/screenshots/06_bookings.png) | ![](docs/screenshots/07_specialists.png) | ![](docs/screenshots/08_dark_english.png) |
+| ![](docs/screenshots/03_catalog.png) | ![](docs/screenshots/04_business.png) | ![](docs/screenshots/05_booking.png) | ![](docs/screenshots/07_chat_slots.png) | ![](docs/screenshots/09_bookings.png) |
+
+| Owner: today | Owner: schedule | Owner: services and staff | Owner: new business | Dark + English |
+|---|---|---|---|---|
+| ![](docs/screenshots/13_owner_today.png) | ![](docs/screenshots/14_owner_schedule.png) | ![](docs/screenshots/16_owner_services.png) | ![](docs/screenshots/20_owner_setup.png) | ![](docs/screenshots/21_dark_english.png) |
 
 | Requirement | How it is met |
 |---|---|
 | Cross-platform mobile app (Flutter) | `app/` — Android, iOS and Web from one codebase |
-| Mobile communicates with server | REST API in `server/` (FastAPI). Auth, specialists, bookings and AI chat all go over HTTP + JSON with a Bearer token |
-| Pushed on GitHub | This repository, with CI: server tests, `flutter analyze`, `flutter test`, web build and an installable Android APK |
-| State management (Bloc) | `flutter_bloc`: `AuthBloc`, `ChatBloc`, `AppointmentsBloc`, `DoctorsBloc`, `SettingsCubit` |
+| Mobile communicates with server | REST API in `server/` (FastAPI). Sign-in, catalog, bookings, the owner's cabinet and the AI chat all go over HTTP + JSON with a Bearer token |
+| Pushed on GitHub | This repository, with CI on every push: server tests on SQLite and PostgreSQL, `flutter analyze`, app tests, an end-to-end test, web, Android and iOS builds |
+| State management (Bloc) | `flutter_bloc`: `AuthBloc`, `CatalogBloc`, `ChatBloc`, `AppointmentsBloc` and cubits for booking, the business page, settings and the owner's cabinet |
 
-## Features
+## What is inside
 
-- **Three businesses in one app**: dental clinic, barbershop, car service (11 specialists). A new business is a few rows in `server/app/db.py`
-- **AI chat**: describe what you need and when → slot cards → tap to book → confirmation card
-- **Voice input**: press the microphone, say the request, it is sent automatically
-- **Reschedule and cancel in chat**: "перенеси мою запись на пятницу", "отмени запись к барберу"
-- Two assistant modes, shown as a badge in the app bar:
-  - **AI** — any OpenAI-compatible LLM with tool calling (`find_slots`, `book_appointment`, `reschedule_appointment`, `cancel_appointment`, `list_my_appointments`)
-  - **Offline** — built-in Russian/English keyword parser. Used when no API key is set or the LLM fails, so the demo always works
-- Register / login, session kept between launches
-- My bookings: list, pull-to-refresh, cancel with confirmation, badge counter
-- Specialists: filter by business, "Book via AI" asks the assistant about that specialist
-- Onboarding, splash screen, app icon, light / dark theme, Russian / Kyrgyz / English interface
-- Server rules: Mon–Sat 09:00–18:00, one-hour slots, no double booking, no past times
+**For clients**
+
+- Catalog of ten niches: dental, medical, barbershop, beauty, massage and spa, fitness, car
+  service, car wash, tutors, vet. Search by service, specialist or place; rating, address and
+  starting price on every card.
+- Business page: services with duration and price, specialists, reviews, opening hours.
+- Booking by calendar: service, specialist (or any), day, time.
+- AI administrator: text or **voice**, slot cards from several businesses, moving and cancelling
+  a booking by chat. Each business page has its own chat that answers for that business only.
+- My bookings: upcoming and history, move, cancel, rate a finished visit.
+
+**For owners**
+
+- Setup: pick a niche, name the business; typical services of the niche are added at once.
+- Today: bookings, revenue and load of the day, today's schedule, the last seven days, how many
+  bookings the AI took, rating, top services.
+- Schedule of any day, statuses (completed, no-show, cancelled), manual booking of a client who
+  called or walked in.
+- Services and staff: add, change, remove; choose who performs each service.
+- Business card, opening hours, working days and a switch that hides the business from the catalog.
+
+**The AI administrator** has two interchangeable engines behind one endpoint. With `LLM_API_KEY`
+set it is any OpenAI-compatible model with tool calling. Without a key, or when the model fails,
+the built-in assistant answers: it matches services by keyword stems, understands dates and times
+in Russian and English, and books, moves and cancels. It reads services from the database, so a
+service an owner adds is bookable by chat immediately.
+
+Also: Russian, Kyrgyz and English interface, light and dark theme, onboarding, one-tap demo
+accounts, a session kept between launches. The full brief is in [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
 
 ## Architecture
 
 ```
 app/lib
-├── main.dart                 # providers + AppGate (splash / onboarding / login / home)
-├── core/                     # ApiClient (http), config, formatters, strings (RU/KY/EN)
-├── data/                     # models + repositories (AuthRepository, ClinicRepository)
-├── bloc/                     # events, states, blocs
-└── ui/                       # screens + widgets
+├── main.dart            # providers, session scope, AppGate (splash / onboarding / sign-in / app)
+├── core/                # ApiClient (HTTP), config, clock, formatters, strings (RU / KY / EN)
+├── data/                # models and repositories: auth, catalog, booking, owner
+├── bloc/                # blocs and cubits: events in, states out
+└── ui/
+    ├── screens/         # splash, onboarding, sign-in
+    ├── customer/        # catalog, business page, AI chat, bookings, profile
+    ├── owner/           # setup, today, schedule, services and staff, business
+    └── widgets/         # booking sheet, chat bubbles, cards, date strip, settings
 
 server/app
-├── main.py                   # FastAPI endpoints
-├── auth.py                   # PBKDF2 passwords, bearer tokens
-├── scheduling.py             # slots, booking, reschedule and cancel rules
-├── assistant.py              # LLM tool calling + offline fallback
-└── db.py                     # SQLite schema, seed categories and specialists
+├── main.py              # FastAPI endpoints
+├── auth.py              # PBKDF2 passwords, bearer tokens, roles
+├── catalog.py           # niches with service templates and keywords
+├── businesses.py        # businesses, services, staff, reviews, statistics
+├── scheduling.py        # slots, booking, moving and cancelling rules
+├── assistant.py         # LLM tool calling + the built-in assistant
+├── seed.py              # demo businesses and demo accounts
+└── db.py                # schema and queries (SQLAlchemy Core): SQLite locally, PostgreSQL in the cloud
 ```
 
-Data flow: `UI → Event → Bloc → Repository → ApiClient → REST API → SQLite / LLM` and back as a new `State`.
+Data flow: `UI → Event → Bloc → Repository → ApiClient → REST API → database / LLM` and back as a
+new `State`. Blocs that live as long as the user is signed in sit above the navigator, so every
+page, sheet and dialog reaches them; signing out disposes them all.
 
 ## API
 
-| Method | Path | Auth | Description |
+| Method | Path | Who | Description |
 |---|---|---|---|
-| POST | `/auth/register` | – | `{name, email, password}` → `{token, user}` |
-| POST | `/auth/login` | – | `{email, password}` → `{token, user}` |
-| GET | `/me` | ✓ | Current user |
-| GET | `/categories` | – | Businesses: dental, barber, auto |
-| GET | `/doctors?category=` | – | Specialists, optionally of one business |
-| GET | `/doctors/{id}/slots` | – | Free slots of a specialist |
-| GET | `/appointments` | ✓ | My upcoming appointments |
-| POST | `/appointments` | ✓ | `{doctor_id, start: "YYYY-MM-DDTHH:MM"}` |
-| PATCH | `/appointments/{id}` | ✓ | `{start}` — move to another time |
-| DELETE | `/appointments/{id}` | ✓ | Cancel |
-| POST | `/chat` | ✓ | `{message, history, category?, doctor_id?}` → `{reply, slots, appointment, reschedule_id, changed, mode}` |
+| GET | `/health`, `/config` | anyone | Liveness; whether demo accounts and the AI mode are on |
+| POST | `/auth/register`, `/auth/login`, `/auth/demo` | anyone | → `{token, user}`; registration takes a `role`: `customer` or `owner` |
+| GET | `/me` | signed in | Current user |
+| GET | `/categories`, `/businesses?category=`, `/businesses/{id}` | anyone | Niches, catalog, one business with services, specialists and reviews |
+| GET | `/businesses/{id}/slots?service_id=&date=&specialist_id=` | anyone | Free start times, every 30 minutes |
+| GET, POST | `/appointments` | client | My bookings; book `{service_id, specialist_id?, start}` |
+| PATCH, DELETE | `/appointments/{id}` | client | Move to another time; cancel |
+| POST | `/appointments/{id}/review` | client | `{rating, comment}` after the visit |
+| POST | `/chat` | client | `{message, history, category?, business_id?}` → `{reply, slots, appointment, …}` |
+| GET, POST, PATCH | `/owner/business` | owner | The business: read, create, change |
+| POST, PATCH, DELETE | `/owner/services`, `/owner/specialists` | owner | Services and staff |
+| GET, POST, PATCH | `/owner/appointments` | owner | Schedule of a day, manual booking, status |
+| GET | `/owner/stats` | owner | Numbers of the dashboard |
 
 Interactive docs: http://localhost:8000/docs
 
 ## Run
 
-**macOS, one click:** double-click `run_demo.command` in Finder. It starts the server and opens the app in
-Chrome at http://localhost:8080 (`./run_demo.command <device-id>` runs it on a simulator or phone).
+**macOS, one click:** double-click `run_demo.command` in Finder. It starts the server and opens the
+app in Chrome at http://localhost:8080. On the sign-in screen press **Client** or **Owner** to
+enter a demo account.
 
-**On a real iPhone:** connect the phone, double-click `run_on_iphone.command`. It installs a release build that
-talks to the server on this Mac over Wi-Fi (the first time it asks you to pick your Apple ID team in Xcode).
+**On a real iPhone from the Mac:** connect the phone, double-click `run_on_iphone.command`.
+
+**Without a computer nearby:** put the server in the cloud once, then the app is installed once
+and keeps working — see [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Manual steps:
-
-### 1. Server
 
 ```bash
 cd server
@@ -89,42 +123,38 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Optional AI mode: copy `.env.example` to `.env` and set `LLM_API_KEY`
-(works with OpenAI, OpenRouter, Groq, Gemini OpenAI-compatible endpoint — set `LLM_BASE_URL` and `LLM_MODEL`).
-
-Tests: `python -m pytest -q`
-
-### 2. App
-
 ```bash
 cd app
 flutter pub get
 flutter run
 ```
 
-Server address used by the app:
-- Android emulator → `http://10.0.2.2:8000` (default)
-- iOS simulator / web → `http://localhost:8000` (default)
-- Real phone → `flutter run --dart-define=API_URL=http://<your-PC-IP>:8000` (phone and PC on the same Wi-Fi)
+Server address used by the app: Android emulator `http://10.0.2.2:8000`, iOS simulator and web
+`http://localhost:8000`. For anything else build with `--dart-define=API_URL=<address>` or tap
+the **Server** line on the sign-in screen and type the address.
 
-Tests: `flutter test`
+Optional AI mode: copy `server/.env.example` to `server/.env` and set `LLM_API_KEY` (any
+OpenAI-compatible API; `LLM_BASE_URL` and `LLM_MODEL` choose the provider and the model).
 
-A ready debug APK is built by CI on every push: GitHub → Actions → latest CI run → artifact
-`smile-ai-debug-apk`. It talks to `http://10.0.2.2:8000` (emulator); for a real phone build your own
-with `flutter build apk --dart-define=API_URL=http://<your-PC-IP>:8000`.
+## Tests
 
-End-to-end check of the app's HTTP layer and `ChatBloc` against a running server:
-`flutter test tool/e2e` (also runs in CI).
+| What | Command | Covers |
+|---|---|---|
+| Server | `cd server && python -m pytest -q` | Booking rules, catalog, owner's cabinet, assistant; runs on SQLite and, with `TEST_DATABASE_URL`, on PostgreSQL |
+| App | `cd app && flutter test` | Blocs and cubits, and the whole app tapped through as a client and as an owner on a phone-sized screen |
+| End to end | `cd app && flutter test tool/e2e` | The app's HTTP layer and blocs against a running server |
+| Screenshots | `cd app && flutter test tool/screenshots --update-goldens` | Renders `docs/screenshots` from the real screens |
 
-Screenshots in `docs/screenshots` are rendered from the real screens by
-`flutter test tool/screenshots --update-goldens`.
+App tests run against `app/test/fake_api.dart`, an in-memory stand-in that answers the same REST
+calls as the server, so the real repositories, blocs and screens are exercised without a network.
 
-## Demo script (2 minutes)
+## Demo script (3 minutes)
 
-1. First launch → onboarding → register. The assistant greets you by name.
-2. Type or say *"Болит зуб, завтра после обеда"* → dentist slots after 13:00 appear as cards.
-3. Tap a slot → confirmation card, the "Bookings" badge shows 1.
-4. Pick **Барбершоп** → *"Стрижка в субботу утром"* → barber slots. Book one.
-5. *"Перенеси запись к барберу на пятницу"* → pick a new time → the booking moves.
-6. *"Отмени запись к стоматологу"* → it disappears from **Bookings**.
-7. Settings (gear) → dark theme, English.
+1. Sign-in screen → **Client**. The catalog opens: search "маникюр", pick a niche.
+2. Open **Барбершоп Blade** → **Записаться** → choose a time → the booking appears in **Записи**.
+3. **Ассистент** → type or say *"Стрижка завтра утром"* → tap a slot card → confirmation.
+4. *"Перенеси мою запись"* → pick a new time. *"Отмени запись"* → it moves to history.
+5. **Записи → История** → rate a finished visit.
+6. **Профиль → Выйти** → **Owner**. The dashboard shows the day; mark a visit as completed.
+7. **Новая запись** → book a walk-in client. **Услуги** → add a service: it is bookable at once,
+   by calendar and by chat.
