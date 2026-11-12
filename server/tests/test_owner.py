@@ -1,6 +1,7 @@
 from datetime import timedelta
 
-from app import clock
+from app import clock, seed
+from app import db as dbmod
 
 NEW_BUSINESS = {
     "category": "beauty", "name": "Тату-студия Ink", "address": "ул. Фрунзе, 300", "phone": "+996 500 000 001",
@@ -184,3 +185,20 @@ def test_paused_business_is_hidden(client, api):
     assert client.get("/owner/business", headers=owner).json()["name"] == "Ink Studio"  # the owner still sees it
     assert client.patch("/owner/business", headers=owner, json={"open_hour": 23, "close_hour": 22}).status_code == 400
     assert client.patch("/owner/business", headers=owner, json={"is_active": True}).json()["is_active"] is True
+
+
+def test_demo_history_is_believable(client, monkeypatch):
+    """The demo owner opens a dashboard with visits, and nobody visits the same place twice a day."""
+    monkeypatch.setenv("SEED_HISTORY", "1")
+    seed.ensure_seed(dbmod.reset_db(drop=True))
+    owner = {"Authorization": f"Bearer {client.post('/auth/demo', json={'role': 'owner'}).json()['token']}"}
+    stats = client.get("/owner/stats", headers=owner).json()
+    assert stats["bookings"] > 0 and stats["reviews_count"] > 0
+    total = 0
+    for offset in range(-14, 3):
+        day = (clock.now().date() + timedelta(days=offset)).isoformat()
+        visits = client.get("/owner/appointments", headers=owner, params={"date": day}).json()
+        people = [v["client_name"] for v in visits]
+        assert all(people) and len(people) == len(set(people)), (day, people)
+        total += len(visits)
+    assert total >= 10

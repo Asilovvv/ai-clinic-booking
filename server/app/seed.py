@@ -197,6 +197,7 @@ def _history(tx, rng, business_id: int, clients: list[int], days_back: int, per_
     offers = scheduling.load_offers(tx, business_id=business_id)
     at = clock.now()
     used: dict = {}
+    visitors: dict = {}  # day -> people already booked: nobody comes twice a day
     for offset in range(-days_back, days_ahead):
         day = at.date() + timedelta(days=offset)
         count = rng.randint(*per_day) if offset < 0 else rng.randint(3, 5)
@@ -215,14 +216,20 @@ def _history(tx, rng, business_id: int, clients: list[int], days_back: int, per_
 
             status = rng.choices(["completed", "no_show", "cancelled"], [80, 8, 12])[0] if past else "booked"
             source = rng.choices(["chat", "app", "owner"], [55, 33, 12])[0]
-            customer_id = None if source == "owner" else rng.choice(clients)
+            # clients[i] is the account of FAKE_CLIENTS[i]; a walk-in is the same person without an account
+            free = [i for i in range(len(clients)) if i not in visitors.setdefault(day, set())]
+            if not free:
+                continue
+            person = rng.choice(free)
+            visitors[day].add(person)
+            customer_id = None if source == "owner" else clients[person]
             appointment_id = tx.insert(
                 appointments,
                 business_id=business_id,
                 service_id=offer["service_id"],
                 specialist_id=offer["specialist_id"],
                 customer_id=customer_id,
-                client_name=rng.choice(FAKE_CLIENTS) if customer_id is None else None,
+                client_name=FAKE_CLIENTS[person] if customer_id is None else None,
                 client_phone="+996 555 000 111" if customer_id is None else None,
                 starts_at=start.strftime(scheduling.FMT),
                 ends_at=(start + timedelta(minutes=offer["duration_min"])).strftime(scheduling.FMT),
