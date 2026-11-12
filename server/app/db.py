@@ -164,6 +164,10 @@ class Database(_Queries):
             options["connect_args"] = {"check_same_thread": False}
         else:
             options["pool_recycle"] = 300
+            # Cloud databases are usually reached through a pooler (PgBouncer) that hands every
+            # transaction to another server connection. A statement prepared on one of them fails
+            # on the next ("prepared statement already exists"), so the driver must not prepare.
+            options["connect_args"] = {"prepare_threshold": None}
         self.url = url
         self.engine = create_engine(url, **options)
         self.dialect = self.engine.dialect.name

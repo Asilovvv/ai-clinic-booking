@@ -37,14 +37,18 @@ put it into the repository, chats or screenshots.
 
 ## 2. Server (about 5 minutes)
 
-1. Open [render.com](https://render.com), sign in with GitHub.
-2. **New > Blueprint**, pick the repository `ai-clinic-booking`. Render reads `render.yaml`
-   and shows one service, `smile-ai-api`.
-3. Paste the connection string into `DATABASE_URL` and press **Apply**.
-4. Wait for the first deploy to finish. Render builds `server/Dockerfile`.
-5. Copy the service address from the top of its page, for example
+1. Open the one-click link
+   <https://render.com/deploy?repo=https://github.com/Asilovvv/ai-clinic-booking> and sign in
+   with GitHub. Render reads `render.yaml` and shows one service, `smile-ai-api`.
+   The same from the dashboard: **New > Blueprint**, then pick the repository.
+2. Paste the connection string into `DATABASE_URL` and start the deploy.
+3. Wait for the first deploy to finish. Render builds `server/Dockerfile`.
+4. Copy the service address from the top of its page, for example
    `https://smile-ai-api.onrender.com`, and open `<address>/health`. It must answer
    `{"status":"ok"}`. `<address>/docs` shows the whole API.
+
+Render may ask a new account for a bank card to verify it. The Blueprint uses only the free
+plan. Neon shows a pooled connection string by default; the server works with it.
 
 On the first start the server creates its tables and the demo data: twelve businesses, a demo
 client and a demo owner.
@@ -53,14 +57,15 @@ client and a demo owner.
 
 In the GitHub repository:
 
-1. **Settings > Secrets and variables > Actions > Variables > New repository variable**:
-   name `API_URL`, value is the address from step 2 (without a slash at the end).
-2. **Settings > Pages > Source: GitHub Actions**. This is needed once, for the web app.
+1. **Settings > Pages > Source: GitHub Actions**. This is needed once, for the web app.
+2. Optional: **Settings > Secrets and variables > Actions > Variables > New repository
+   variable**, name `API_URL`, value is the address from step 2. With it the address does not
+   have to be typed at every release.
 
 ## 4. Build and publish the app
 
-**Actions > Release > Run workflow**, version `v3.0.0`. The workflow checks that the server
-answers, then:
+**Actions > Release > Run workflow**: version `v3.0.0`, and the server address in `api_url`
+unless the variable is set. The workflow checks that the server answers, then:
 
 - builds the Android APK with the server address inside and attaches it to a new Release;
 - builds the web app and publishes it at `https://<user>.github.io/ai-clinic-booking/`.
