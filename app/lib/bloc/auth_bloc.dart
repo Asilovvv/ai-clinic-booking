@@ -14,6 +14,7 @@ sealed class AuthEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// The app started: try to restore the saved session.
 final class AuthStarted extends AuthEvent {
   const AuthStarted();
 }
@@ -29,14 +30,27 @@ final class AuthLoginRequested extends AuthEvent {
 }
 
 final class AuthRegisterRequested extends AuthEvent {
-  const AuthRegisterRequested(this.name, this.email, this.password);
+  const AuthRegisterRequested(this.name, this.email, this.password, {this.role = 'customer'});
 
   final String name;
   final String email;
   final String password;
 
+  /// "customer" or "owner".
+  final String role;
+
   @override
-  List<Object?> get props => [name, email, password];
+  List<Object?> get props => [name, email, password, role];
+}
+
+/// One-tap sign-in to a demo account.
+final class AuthDemoRequested extends AuthEvent {
+  const AuthDemoRequested(this.role);
+
+  final String role;
+
+  @override
+  List<Object?> get props => [role];
 }
 
 final class AuthLogoutRequested extends AuthEvent {
@@ -52,10 +66,12 @@ sealed class AuthState extends Equatable {
   List<Object?> get props => [];
 }
 
+/// The saved session has not been checked yet.
 final class AuthInitial extends AuthState {
   const AuthInitial();
 }
 
+/// A sign-in request is in flight.
 final class AuthLoading extends AuthState {
   const AuthLoading();
 }
@@ -83,33 +99,28 @@ final class AuthUnauthenticated extends AuthState {
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc(this._repository) : super(const AuthInitial()) {
     on<AuthStarted>(_onStarted);
-    on<AuthLoginRequested>(_onLogin);
-    on<AuthRegisterRequested>(_onRegister);
+    on<AuthLoginRequested>((event, emit) => _signIn(emit, () => _repository.login(event.email, event.password)));
+    on<AuthRegisterRequested>((event, emit) => _signIn(
+        emit, () => _repository.register(event.name, event.email, event.password, role: event.role)));
+    on<AuthDemoRequested>((event, emit) => _signIn(emit, () => _repository.demoLogin(event.role)));
     on<AuthLogoutRequested>(_onLogout);
   }
 
   final AuthRepository _repository;
 
   Future<void> _onStarted(AuthStarted event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading());
-    final user = await _repository.restoreSession();
-    emit(user == null ? const AuthUnauthenticated() : AuthAuthenticated(user));
-  }
-
-  Future<void> _onLogin(AuthLoginRequested event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading());
     try {
-      emit(AuthAuthenticated(await _repository.login(event.email, event.password)));
+      final user = await _repository.restoreSession();
+      emit(user == null ? const AuthUnauthenticated() : AuthAuthenticated(user));
     } on ApiException catch (e) {
       emit(AuthUnauthenticated(error: e.message));
     }
   }
 
-  Future<void> _onRegister(AuthRegisterRequested event, Emitter<AuthState> emit) async {
+  Future<void> _signIn(Emitter<AuthState> emit, Future<User> Function() request) async {
     emit(const AuthLoading());
     try {
-      emit(AuthAuthenticated(
-          await _repository.register(event.name, event.email, event.password)));
+      emit(AuthAuthenticated(await request()));
     } on ApiException catch (e) {
       emit(AuthUnauthenticated(error: e.message));
     }

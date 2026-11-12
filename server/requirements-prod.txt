@@ -1,0 +1,4 @@
+# Extra packages for the cloud: the PostgreSQL driver and the time zone database
+# (slim container images may ship without one).
+psycopg[binary]>=3.2
+tzdata

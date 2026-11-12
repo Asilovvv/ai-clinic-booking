@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/settings_cubit.dart';
 import '../theme.dart';
+import '../widgets/language_button.dart';
 
 /// Three intro pages shown on the first launch.
 class OnboardingScreen extends StatefulWidget {
@@ -37,27 +38,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final strings = context.strings;
     final pages = [
       (Icons.auto_awesome, strings.onboardTitle1, strings.onboardText1),
-      (Icons.storefront_outlined, strings.onboardTitle2, strings.onboardText2),
-      (Icons.event_available_outlined, strings.onboardTitle3, strings.onboardText3),
+      (Icons.apps, strings.onboardTitle2, strings.onboardText2),
+      (Icons.storefront_outlined, strings.onboardTitle3, strings.onboardText3),
     ];
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [brandColor, brandDark],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: brandGradient),
         child: SafeArea(
           child: Column(
             children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _finish,
-                  child: Text(strings.skip, style: const TextStyle(color: Colors.white70)),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const LanguageButton(color: Colors.white70),
+                  TextButton(
+                    onPressed: _finish,
+                    child: Text(strings.skip, style: const TextStyle(color: Colors.white70)),
+                  ),
+                ],
               ),
               Expanded(
                 child: PageView.builder(

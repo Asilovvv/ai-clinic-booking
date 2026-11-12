@@ -26,11 +26,15 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     required this.bookingKey,
     required this.onSlotTap,
+    this.showBusiness = true,
   });
 
   final ChatMessage message;
   final String? bookingKey;
   final void Function(Slot slot, int? rescheduleId) onSlotTap;
+
+  /// Slot cards name the business (city-wide chat) or the specialist (chat of one business).
+  final bool showBusiness;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +107,7 @@ class MessageBubble extends StatelessWidget {
                     for (final slot in message.slots)
                       SlotCard(
                         slot: slot,
+                        showBusiness: showBusiness,
                         loading: bookingKey == slot.key,
                         enabled: bookingKey == null,
                         onTap: (slot) => onSlotTap(slot, message.rescheduleId),
@@ -130,17 +135,21 @@ class SlotCard extends StatelessWidget {
     required this.loading,
     required this.enabled,
     required this.onTap,
+    this.showBusiness = true,
   });
 
   final Slot slot;
   final bool loading;
   final bool enabled;
   final ValueChanged<Slot> onTap;
+  final bool showBusiness;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final strings = context.strings;
+    final color = scheme.onPrimaryContainer;
     return Material(
       color: scheme.primaryContainer,
       borderRadius: BorderRadius.circular(14),
@@ -150,47 +159,41 @@ class SlotCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: SizedBox(
-            width: 128,
+            width: 134,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
-                    Icon(categoryIcon(slot.category), size: 16, color: scheme.onPrimaryContainer),
+                    Icon(categoryIcon(slot.category), size: 16, color: color),
                     const SizedBox(width: 4),
                     Text(
                       formatTime(slot.start),
-                      style: text.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onPrimaryContainer,
-                      ),
+                      style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: color),
                     ),
                     const Spacer(),
                     if (loading)
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                   ],
                 ),
-                Text(
-                  formatDay(slot.start, context.strings.lang),
-                  style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
-                ),
+                Text(formatDay(slot.start, strings.lang), style: text.bodySmall?.copyWith(color: color)),
                 const SizedBox(height: 4),
                 Text(
-                  slot.doctorName,
-                  maxLines: 1,
+                  slot.serviceName,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: text.labelLarge?.copyWith(color: scheme.onPrimaryContainer),
+                  style: text.labelLarge?.copyWith(color: color, height: 1.2),
                 ),
                 Text(
-                  slot.doctorTitle,
+                  showBusiness ? slot.businessName : slot.specialistName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
+                  style: text.bodySmall?.copyWith(color: color),
+                ),
+                Text(
+                  formatMoney(slot.price, strings),
+                  style: text.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -229,7 +232,8 @@ class BookedCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(strings.bookingConfirmed, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                Text('${appointment.doctorTitle} · ${appointment.doctorName}', style: text.bodySmall),
+                Text('${appointment.serviceName} · ${appointment.businessName}', style: text.bodySmall),
+                Text(appointment.specialistName, style: text.bodySmall),
                 Text(
                   '${formatDay(appointment.start, strings.lang)}, ${formatTime(appointment.start)}',
                   style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
