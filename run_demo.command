@@ -18,7 +18,11 @@ command -v python3 >/dev/null || fail "Python 3 is not installed. Get it from ht
 if ! command -v flutter >/dev/null; then
   if command -v brew >/dev/null; then
     read -r -p "Flutter is not installed. Install it now with Homebrew (about 2 GB)? [y/N] " answer
-    [ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "Flutter is required. Run this file again when it is installed."
+    # "н" is the Y key on the Russian keyboard layout, "д" is for "да".
+    case "$answer" in
+      y|Y|н|Н|д|Д|yes|да) ;;
+      *) fail "Flutter is required. Run this file again and answer y." ;;
+    esac
     brew install --cask flutter
   else
     fail "Flutter is not installed. Install Homebrew (https://brew.sh), then run:  brew install --cask flutter"
