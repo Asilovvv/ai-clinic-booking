@@ -64,8 +64,8 @@ In the GitHub repository:
 
 ## 4. Build and publish the app
 
-**Actions > Release > Run workflow**: version `v3.0.0`, and the server address in `api_url`
-unless the variable is set. The workflow checks that the server answers, then:
+**Actions > Release > Run workflow**: a version such as `v3.0.0`, and your server address in
+`api_url`. The workflow checks that the server answers, then:
 
 - builds the Android APK with the server address inside and attaches it to a new Release;
 - builds the web app and publishes it at `https://<user>.github.io/ai-clinic-booking/`.

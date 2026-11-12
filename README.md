@@ -6,6 +6,10 @@ AI administrator offers free time and books it. **Business owners** register the
 minute, get an administrator that takes bookings around the clock, and see their schedule,
 clients and revenue.
 
+**Try it now:** open the [web app](https://asilovvv.github.io/ai-clinic-booking/) and press
+**Client** or **Owner** on the sign-in screen. The demo server runs on a free plan, so the first
+request after a quiet period waits for it to wake up.
+
 | Catalog | Business page | Booking | AI administrator | My bookings |
 |---|---|---|---|---|
 | ![](docs/screenshots/03_catalog.png) | ![](docs/screenshots/04_business.png) | ![](docs/screenshots/05_booking.png) | ![](docs/screenshots/07_chat_slots.png) | ![](docs/screenshots/09_bookings.png) |
@@ -111,8 +115,17 @@ enter a demo account.
 
 **On a real iPhone from the Mac:** connect the phone, double-click `run_on_iphone.command`.
 
-**Without a computer nearby:** put the server in the cloud once, then the app is installed once
-and keeps working — see [docs/DEPLOY.md](docs/DEPLOY.md).
+**On a phone, without a computer nearby:** the app is installed once and talks to the server in
+the cloud ([API](https://smile-ai-api.onrender.com/docs)).
+
+- iPhone: open the [web app](https://asilovvv.github.io/ai-clinic-booking/) in Safari, tap Share,
+  then Add to Home Screen.
+- Android: download the APK from
+  [Releases](https://github.com/Asilovvv/ai-clinic-booking/releases/latest) and open it.
+
+<img src="docs/install-qr.png" width="520" alt="QR codes: the web app for iPhone, the release page for Android">
+
+To run your own copy in the cloud, follow [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Manual steps:
 
